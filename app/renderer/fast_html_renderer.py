@@ -140,7 +140,8 @@ class FastHtmlRenderer:
         ws: Worksheet, 
         title: str = "Report Preview", 
         show_gridlines: Optional[bool] = None,
-        font_family: Optional[str] = None
+        font_family: Optional[str] = None,
+        fit_to_page: bool = True
     ) -> str:
         """Converts openpyxl worksheet into HTML with inline CSS styling, page breaks, and calculated values."""
         max_row = ws.max_row or 1
@@ -263,7 +264,7 @@ class FastHtmlRenderer:
                 default_row_height = 15.0
 
         # Build column dimensions and colgroup elements
-        colgroup_tags: List[str] = []
+        col_dims_raw: List[Tuple[int, int, bool]] = []
         hidden_cols: Set[int] = set()
         total_visible_table_width_px = 0
 
@@ -272,10 +273,37 @@ class FastHtmlRenderer:
             col_px = cls._excel_col_width_to_pixels(w_chars)
             if col_hidden:
                 hidden_cols.add(c)
-                colgroup_tags.append('<col style="display: none; width: 0px;" />')
+                col_dims_raw.append((c, col_px, True))
             else:
                 total_visible_table_width_px += col_px
-                colgroup_tags.append(f'<col style="width: {col_px}px;" />')
+                col_dims_raw.append((c, col_px, False))
+
+        # Calculate proportional percentages so total equals exactly 100.00%
+        colgroup_tags: List[str] = []
+        if fit_to_page and total_visible_table_width_px > 0:
+            visible_items = [item for item in col_dims_raw if not item[2]]
+            pct_accum = 0.0
+            col_pct_map: Dict[int, float] = {}
+            for idx, (c, col_px, _) in enumerate(visible_items):
+                if idx == len(visible_items) - 1:
+                    pct = round(100.0 - pct_accum, 2)
+                else:
+                    pct = round((col_px / total_visible_table_width_px) * 100.0, 2)
+                    pct_accum += pct
+                col_pct_map[c] = max(0.1, pct)
+
+            for c, col_px, col_hidden in col_dims_raw:
+                if col_hidden:
+                    colgroup_tags.append('<col style="display: none; width: 0px;" />')
+                else:
+                    pct = col_pct_map.get(c, 10.0)
+                    colgroup_tags.append(f'<col style="width: {pct:.2f}%;" />')
+        else:
+            for c, col_px, col_hidden in col_dims_raw:
+                if col_hidden:
+                    colgroup_tags.append('<col style="display: none; width: 0px;" />')
+                else:
+                    colgroup_tags.append(f'<col style="width: {col_px}px;" />')
 
         if show_gridlines is None:
             display_gridlines = getattr(ws.print_options, "gridLines", False) is True
@@ -284,23 +312,47 @@ class FastHtmlRenderer:
 
         table_class = "report-table show-gridlines" if display_gridlines else "report-table"
 
+        # Determine base table font size and cell padding for optimal fit across columns
+        if fit_to_page:
+            if max_col >= 12 or total_visible_table_width_px > 1100:
+                base_font_size = "9.5px"
+                cell_padding = "2px 3px"
+            elif max_col >= 8 or total_visible_table_width_px > 800:
+                base_font_size = "11px"
+                cell_padding = "2px 4px"
+            elif max_col >= 6:
+                base_font_size = "12px"
+                cell_padding = "3px 5px"
+            else:
+                base_font_size = "13px"
+                cell_padding = "4px 8px"
+        else:
+            base_font_size = "13px"
+            cell_padding = "3px 6px"
+
         # Check page setup for landscape / portrait / margins
         page_setup_css = []
         orientation = getattr(getattr(ws, "page_setup", None), "orientation", None)
-        if orientation == "landscape":
+
+        # Auto-detect landscape if report is wide (8+ cols or > 780px) and not explicitly forced to portrait
+        if orientation == "landscape" or (orientation != "portrait" and (max_col >= 8 or total_visible_table_width_px > 780)):
             page_setup_css.append("size: landscape;")
         elif orientation == "portrait":
             page_setup_css.append("size: portrait;")
 
         margins = getattr(ws, "page_margins", None)
         if margins:
-            top_in = getattr(margins, "top", 0.75) or 0.75
-            bottom_in = getattr(margins, "bottom", 0.75) or 0.75
-            left_in = getattr(margins, "left", 0.7) or 0.7
-            right_in = getattr(margins, "right", 0.7) or 0.7
+            top_in = getattr(margins, "top", 0.5) or 0.5
+            bottom_in = getattr(margins, "bottom", 0.5) or 0.5
+            left_in = getattr(margins, "left", 0.4) or 0.4
+            right_in = getattr(margins, "right", 0.4) or 0.4
             page_setup_css.append(f"margin: {top_in}in {right_in}in {bottom_in}in {left_in}in;")
+        else:
+            page_setup_css.append("margin: 0.35in;")
 
         page_rule = f"@page {{ {' '.join(page_setup_css)} }}" if page_setup_css else ""
+
+        table_width_style = "width: 100%;" if fit_to_page else f"min-width: {total_visible_table_width_px}px;"
 
         html_out = [
             '<!DOCTYPE html>',
@@ -308,17 +360,17 @@ class FastHtmlRenderer:
             f'<title>{html.escape(title)}</title>',
             '<style>',
             f'body {{ font-family: {base_font_css}; margin: 20px; background-color: #f8fafc; color: #1e293b; }}',
-            '.report-container { max-width: 1100px; margin: 0 auto; background: #ffffff; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; overflow-x: auto; }',
-            'table.report-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 13px; line-height: 1.2; }',
+            '.report-container { width: 100%; max-width: 100%; margin: 0 auto; background: #ffffff; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; box-sizing: border-box; overflow-x: auto; }',
+            f'table.report-table {{ border-collapse: collapse; width: 100%; max-width: 100%; table-layout: fixed; font-size: {base_font_size}; line-height: 1.25; }}',
             f'table.report-table tr {{ height: {default_row_height}pt; }}',
-            'table.report-table td { padding: 3px 6px; border: none; vertical-align: middle; box-sizing: border-box; }',
-            'table.report-table.show-gridlines td { border: 1px solid #e2e8f0; }',
+            f'table.report-table td {{ padding: {cell_padding}; border: none; vertical-align: middle; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word; }}',
+            'table.report-table.show-gridlines td {{ border: 1px solid #e2e8f0; }}',
             f'{page_rule}',
             '@media print {',
-            '  body { margin: 0; background: none; }',
-            '  .report-container { box-shadow: none; padding: 0; max-width: 100%; border-radius: 0; }',
+            '  body { margin: 0; background: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
+            '  .report-container { box-shadow: none; padding: 0; width: 100% !important; max-width: 100% !important; border-radius: 0; }',
             '  .page-break { page-break-before: always !important; break-before: page !important; }',
-            '  table.report-table { width: 100% !important; min-width: 0 !important; }',
+            '  table.report-table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; }',
             '}',
             '@media screen {',
             '  .page-break td { border-top: 4px dashed #6366f1 !important; }',
@@ -327,7 +379,7 @@ class FastHtmlRenderer:
             '</style>',
             '</head><body>',
             '<div class="report-container">',
-            f'<table class="{table_class}" style="min-width: {total_visible_table_width_px}px;">',
+            f'<table class="{table_class}" style="{table_width_style}">',
             '<colgroup>',
             *colgroup_tags,
             '</colgroup>'

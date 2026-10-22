@@ -19,18 +19,26 @@ def test_column_widths_to_colgroup():
     ws["B1"] = "Col B"
     ws["C1"] = "Col C"
 
-    html = FastHtmlRenderer.render(ws, "Dimensions Test")
+    # 1. Test fit_to_page=True (Default): All columns fit to 100% table width with exact proportions
+    html = FastHtmlRenderer.render(ws, "Dimensions Test", fit_to_page=True)
 
     # Formula: round(w * 7 + 5)
-    # A (16.0): 16 * 7 + 5 = 117px
-    # B (34.0): 34 * 7 + 5 = 243px
-    # C (10.0): 10 * 7 + 5 = 75px
+    # A (16.0): 117px -> 26.90%
+    # B (34.0): 243px -> 55.86%
+    # C (10.0): 75px  -> 17.24% (100.0 - 26.90 - 55.86)
     assert "<colgroup>" in html
-    assert '<col style="width: 117px;" />' in html
-    assert '<col style="width: 243px;" />' in html
-    assert '<col style="width: 75px;" />' in html
+    assert '<col style="width: 26.90%;" />' in html
+    assert '<col style="width: 55.86%;" />' in html
+    assert '<col style="width: 17.24%;" />' in html
     assert "table-layout: fixed;" in html
-    assert "min-width: 435px;" in html  # 117 + 243 + 75 = 435px
+    assert 'style="width: 100%;"' in html
+
+    # 2. Test fit_to_page=False: Explicit pixel widths
+    html_px = FastHtmlRenderer.render(ws, "Dimensions Test", fit_to_page=False)
+    assert '<col style="width: 117px;" />' in html_px
+    assert '<col style="width: 243px;" />' in html_px
+    assert '<col style="width: 75px;" />' in html_px
+    assert "min-width: 435px;" in html_px
 
 
 def test_row_heights_and_default_height():
