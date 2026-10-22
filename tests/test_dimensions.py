@@ -153,3 +153,81 @@ def test_pdf_generation_with_dimensions():
     pdf_bytes = BrowserPdfRenderer.convert_worksheet_to_pdf(ws, "Test Dimension PDF")
     assert pdf_bytes.startswith(b"%PDF")
     assert len(pdf_bytes) > 1000
+
+
+def test_print_area_exclusion_of_outer_columns():
+    """Verify that columns outside the Excel print_area are excluded from the HTML table."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws["A1"] = "Col A"
+    ws["B1"] = "Col B"
+    ws["C1"] = "Col C (Outside)"
+    ws["D1"] = "Col D (Outside)"
+
+    ws.column_dimensions["A"].width = 20.0
+    ws.column_dimensions["B"].width = 25.0
+    ws.column_dimensions["C"].width = 30.0
+    ws.column_dimensions["D"].width = 15.0
+
+    # Explicit print area: only A1:B1
+    ws.print_area = "A1:B1"
+
+    html = FastHtmlRenderer.render(ws, "Print Area Test")
+
+    # Only 2 cols should be in colgroup
+    assert html.count("<col style=") == 2
+    assert "Col A" in html
+    assert "Col B" in html
+    assert "Col C (Outside)" not in html
+    assert "Col D (Outside)" not in html
+
+
+def test_horizontal_centering_and_margin_balancing():
+    """Verify that all reports have margin-left: auto and margin-right: auto and balanced @page margins."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws["A1"] = "Header"
+    ws.column_dimensions["A"].width = 20.0
+
+    html = FastHtmlRenderer.render(ws, "Center Test")
+
+    # Table must be horizontally centered
+    assert "margin-left: auto !important; margin-right: auto !important;" in html
+    assert "display: flex; flex-direction: column; align-items: center;" in html
+
+    # @page rule must exist with balanced horizontal margin
+    assert "@page {" in html
+    assert "size: a4 portrait;" in html
+
+
+def test_template_processor_updates_print_area_on_expansion():
+    """Verify that TemplateProcessor preserves print area and expands rows to cover emitted items."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws["A1"] = "{{#each items}}"
+    ws["A2"] = "{{name}}"
+    ws["B2"] = "{{val}}"
+    ws["C2"] = "Scratch Column"
+    ws["A3"] = "{{/each}}"
+
+    # Print area is columns A:B
+    ws.print_area = "A1:B3"
+
+    proc = TemplateProcessor(wb)
+    out_wb = proc.process({
+        "items": [
+            {"name": "Item 1", "val": 10},
+            {"name": "Item 2", "val": 20},
+            {"name": "Item 3", "val": 30},
+            {"name": "Item 4", "val": 40},
+            {"name": "Item 5", "val": 50},
+        ]
+    })
+    out_ws = out_wb.active
+
+    # Rows expanded from 3 to 5
+    assert "A$1:$B$5" in out_ws.print_area or "A1:B5" in out_ws.print_area.replace("$", "")
+    html = FastHtmlRenderer.render(out_ws)
+    # Column C must be excluded
+    assert "Scratch Column" not in html
+    assert html.count("<col style=") == 2

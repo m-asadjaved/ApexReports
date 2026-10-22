@@ -5,6 +5,7 @@ from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.pagebreak import Break
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.cell import range_boundaries
 
 from app.engine.template_parser import ExpressionEvaluator, parse_tag_attributes, parse_media_tag, TAG_REGEX
 from app.engine.cell_utils import copy_cell_style, render_cell_value
@@ -45,7 +46,7 @@ class TemplateProcessor:
         template_rows = list(self.src_sheet.iter_rows(values_only=False))
         total_rows = len(template_rows)
 
-        self._execute_block(
+        total_emitted = self._execute_block(
             rows=template_rows,
             start_idx=0,
             end_idx=total_rows,
@@ -59,6 +60,7 @@ class TemplateProcessor:
             self.target_sheet.row_breaks.append(Break(id=pb_row))
 
         self._copy_merged_cells()
+        self._update_target_print_area(total_emitted - 1)
 
         return self.target_wb
 
@@ -100,8 +102,60 @@ class TemplateProcessor:
             pass
 
         try:
+            if getattr(self.src_sheet.page_setup, 'scale', None):
+                self.target_sheet.page_setup.scale = self.src_sheet.page_setup.scale
+            if getattr(self.src_sheet.page_setup, 'fitToWidth', None) is not None:
+                self.target_sheet.page_setup.fitToWidth = self.src_sheet.page_setup.fitToWidth
+            if getattr(self.src_sheet.page_setup, 'fitToHeight', None) is not None:
+                self.target_sheet.page_setup.fitToHeight = self.src_sheet.page_setup.fitToHeight
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self.src_sheet, 'page_margins') and self.src_sheet.page_margins:
+                if getattr(self.src_sheet.page_margins, 'header', None) is not None:
+                    self.target_sheet.page_margins.header = self.src_sheet.page_margins.header
+                if getattr(self.src_sheet.page_margins, 'footer', None) is not None:
+                    self.target_sheet.page_margins.footer = self.src_sheet.page_margins.footer
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self.src_sheet, 'print_area') and self.src_sheet.print_area:
+                self.target_sheet.print_area = self.src_sheet.print_area
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self.src_sheet, 'print_options') and self.src_sheet.print_options:
+                self.target_sheet.print_options.horizontalCentered = self.src_sheet.print_options.horizontalCentered
+                self.target_sheet.print_options.verticalCentered = self.src_sheet.print_options.verticalCentered
+                self.target_sheet.print_options.gridLines = self.src_sheet.print_options.gridLines
+        except Exception:
+            pass
+
+        try:
             if self.src_sheet.views.sheetView:
                 self.target_sheet.views.sheetView[0].showGridLines = self.src_sheet.views.sheetView[0].showGridLines
+        except Exception:
+            pass
+
+    def _update_target_print_area(self, final_row: int) -> None:
+        """Expands target print area rows to include all emitted data rows while keeping column bounds."""
+        pa = getattr(self.target_sheet, 'print_area', None)
+        if not pa:
+            return
+        pa_str = pa[0] if isinstance(pa, (list, tuple)) else str(pa)
+        if not pa_str.strip():
+            return
+        clean = pa_str.split('!')[-1].replace('$', '').strip()
+        try:
+            min_c, min_r, max_c, max_r = range_boundaries(clean)
+            if min_c and max_c:
+                eff_max_r = max(max_r or 1, final_row)
+                start_l = get_column_letter(min_c)
+                end_l = get_column_letter(max_c)
+                self.target_sheet.print_area = f"{start_l}{min_r or 1}:{end_l}{eff_max_r}"
         except Exception:
             pass
 

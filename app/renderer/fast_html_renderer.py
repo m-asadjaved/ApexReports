@@ -5,6 +5,7 @@ import html
 from typing import Any, Dict, List, Optional, Set, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import get_column_letter, column_index_from_string
+from openpyxl.utils.cell import range_boundaries
 from app.core.config import settings
 from app.engine.formula_evaluator import FormulaEvaluator
 from app.renderer.color_resolver import ExcelColorResolver
@@ -135,6 +136,53 @@ class FastHtmlRenderer:
         return height, hidden
 
     @classmethod
+    def _get_printable_boundaries(cls, ws: Worksheet) -> Tuple[int, int, int, int]:
+        """
+        Extracts (min_col, min_row, max_col, max_row) representing the printable area.
+        Respects ws.print_area if defined; otherwise detects effective content bounds.
+        """
+        pa = getattr(ws, "print_area", None)
+        if pa:
+            pa_str = pa[0] if isinstance(pa, (list, tuple)) else str(pa)
+            if pa_str.strip():
+                clean = pa_str.split("!")[-1].replace("$", "").strip()
+                try:
+                    min_c, min_r, max_c, max_r = range_boundaries(clean)
+                    if min_c and max_c:
+                        eff_max_r = max(max_r or ws.max_row or 1, ws.max_row or 1)
+                        eff_min_r = min_r or 1
+                        return (min_c or 1, eff_min_r, max_c, eff_max_r)
+                except Exception:
+                    pass
+
+        # Fallback: find highest column with actual values, styles, or explicit column dimension
+        max_col_detected = 1
+        max_row_detected = ws.max_row or 1
+
+        for r in range(1, max_row_detected + 1):
+            for c in range(1, (ws.max_column or 1) + 1):
+                cell = ws.cell(row=r, column=c)
+                if cell.value is not None or (cell.has_style and (getattr(cell.fill, "fill_type", None) or (cell.border and getattr(cell.border.top, "style", None)))):
+                    max_col_detected = max(max_col_detected, c)
+
+        for rng in getattr(ws.merged_cells, "ranges", []):
+            if getattr(rng, "max_col", 0) > max_col_detected:
+                max_col_detected = rng.max_col
+
+        # Also check columns with explicit width that contain content
+        for k, col_dim in ws.column_dimensions.items():
+            if col_dim and getattr(col_dim, "width", None) is not None:
+                if ":" not in k:
+                    try:
+                        ci = column_index_from_string(k)
+                        if ci <= (ws.max_column or 1):
+                            max_col_detected = max(max_col_detected, ci)
+                    except Exception:
+                        pass
+
+        return (1, 1, max(1, min(max_col_detected, ws.max_column or 1)), max_row_detected)
+
+    @classmethod
     def render(
         cls, 
         ws: Worksheet, 
@@ -144,28 +192,7 @@ class FastHtmlRenderer:
         fit_to_page: bool = True
     ) -> str:
         """Converts openpyxl worksheet into HTML with inline CSS styling, page breaks, and calculated values."""
-        max_row = ws.max_row or 1
-        max_col = ws.max_column or 1
-
-        # Ensure max_col covers any merged ranges
-        for rng in getattr(ws.merged_cells, "ranges", []):
-            if getattr(rng, "max_col", 0) > max_col:
-                max_col = rng.max_col
-
-        # Ensure max_col covers any columns with explicit custom widths
-        for k, col_dim in ws.column_dimensions.items():
-            if col_dim and getattr(col_dim, "width", None) is not None:
-                if ":" in k:
-                    parts = k.split(":")
-                    try:
-                        max_col = max(max_col, column_index_from_string(parts[1]))
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        max_col = max(max_col, column_index_from_string(k))
-                    except Exception:
-                        pass
+        min_col, min_row, max_col, max_row = cls._get_printable_boundaries(ws)
 
         # Extract theme color palette from workbook
         theme_colors = ExcelColorResolver.extract_theme_colors(getattr(ws, "parent", None))
@@ -268,7 +295,7 @@ class FastHtmlRenderer:
         hidden_cols: Set[int] = set()
         total_visible_table_width_px = 0
 
-        for c in range(1, max_col + 1):
+        for c in range(min_col, max_col + 1):
             w_chars, col_hidden = cls._get_column_dimension(ws, c)
             col_px = cls._excel_col_width_to_pixels(w_chars)
             if col_hidden:
@@ -330,27 +357,36 @@ class FastHtmlRenderer:
             base_font_size = "13px"
             cell_padding = "3px 6px"
 
-        # Check page setup for landscape / portrait / margins
-        page_setup_css = []
-        orientation = getattr(getattr(ws, "page_setup", None), "orientation", None)
+        # Paper size detection (9=A4, 1=Letter, 8=A3, 5=Legal)
+        paper_size_code = getattr(getattr(ws, "page_setup", None), "paperSize", None)
+        paper_map = {
+            1: ("letter", 8.5, 11.0),
+            5: ("legal", 8.5, 14.0),
+            8: ("a3", 11.69, 16.54),
+            9: ("a4", 8.27, 11.69),
+        }
+        paper_name, paper_w_in, paper_h_in = paper_map.get(paper_size_code, ("a4", 8.27, 11.69))
 
-        # Auto-detect landscape if report is wide (8+ cols or > 780px) and not explicitly forced to portrait
-        if orientation == "landscape" or (orientation != "portrait" and (max_col >= 8 or total_visible_table_width_px > 780)):
-            page_setup_css.append("size: landscape;")
-        elif orientation == "portrait":
-            page_setup_css.append("size: portrait;")
+        orientation = getattr(getattr(ws, "page_setup", None), "orientation", None)
+        num_cols = max_col - min_col + 1
+        is_wide = (total_visible_table_width_px > 780 or num_cols >= 8)
+        if orientation == "landscape" or (not orientation and is_wide):
+            page_w_in, page_h_in = max(paper_w_in, paper_h_in), min(paper_w_in, paper_h_in)
+            orient_str = "landscape"
+        else:
+            page_w_in, page_h_in = min(paper_w_in, paper_h_in), max(paper_w_in, paper_h_in)
+            orient_str = "portrait"
 
         margins = getattr(ws, "page_margins", None)
-        if margins:
-            top_in = getattr(margins, "top", 0.5) or 0.5
-            bottom_in = getattr(margins, "bottom", 0.5) or 0.5
-            left_in = getattr(margins, "left", 0.4) or 0.4
-            right_in = getattr(margins, "right", 0.4) or 0.4
-            page_setup_css.append(f"margin: {top_in}in {right_in}in {bottom_in}in {left_in}in;")
-        else:
-            page_setup_css.append("margin: 0.35in;")
+        top_in = round(min(float(getattr(margins, "top", 0.5) or 0.5), 0.75), 3) if margins else 0.5
+        bottom_in = round(min(float(getattr(margins, "bottom", 0.5) or 0.5), 0.75), 3) if margins else 0.5
 
-        page_rule = f"@page {{ {' '.join(page_setup_css)} }}" if page_setup_css else ""
+        # Horizontally center all reports on the page and match margins
+        table_w_in = total_visible_table_width_px / 96.0
+        avail_h_margin = max(0.0, page_w_in - table_w_in)
+        h_margin_in = round(max(0.15, avail_h_margin / 2.0), 3)
+
+        page_rule = f"@page {{ size: {paper_name} {orient_str}; margin: {top_in}in {h_margin_in}in {bottom_in}in {h_margin_in}in; }}"
 
         table_width_style = "width: 100%;" if fit_to_page else f"min-width: {total_visible_table_width_px}px;"
 
@@ -360,17 +396,17 @@ class FastHtmlRenderer:
             f'<title>{html.escape(title)}</title>',
             '<style>',
             f'body {{ font-family: {base_font_css}; margin: 20px; background-color: #f8fafc; color: #1e293b; }}',
-            '.report-container { width: 100%; max-width: 100%; margin: 0 auto; background: #ffffff; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; box-sizing: border-box; overflow-x: auto; }',
-            f'table.report-table {{ border-collapse: collapse; width: 100%; max-width: 100%; table-layout: fixed; font-size: {base_font_size}; line-height: 1.25; }}',
+            '.report-container { width: 100%; max-width: 100%; margin: 0 auto; background: #ffffff; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; box-sizing: border-box; overflow-x: auto; display: flex; flex-direction: column; align-items: center; }',
+            f'table.report-table {{ border-collapse: collapse; width: 100%; max-width: 100%; table-layout: fixed; font-size: {base_font_size}; line-height: 1.25; margin-left: auto !important; margin-right: auto !important; }}',
             f'table.report-table tr {{ height: {default_row_height}pt; }}',
             f'table.report-table td {{ padding: {cell_padding}; border: none; vertical-align: middle; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word; }}',
             'table.report-table.show-gridlines td {{ border: 1px solid #e2e8f0; }}',
             f'{page_rule}',
             '@media print {',
             '  body { margin: 0; background: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-            '  .report-container { box-shadow: none; padding: 0; width: 100% !important; max-width: 100% !important; border-radius: 0; }',
+            '  .report-container { box-shadow: none; padding: 0; width: 100% !important; max-width: 100% !important; border-radius: 0; margin: 0 auto !important; display: block !important; }',
             '  .page-break { page-break-before: always !important; break-before: page !important; }',
-            '  table.report-table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; }',
+            '  table.report-table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; margin-left: auto !important; margin-right: auto !important; }',
             '}',
             '@media screen {',
             '  .page-break td { border-top: 4px dashed #6366f1 !important; }',
@@ -385,7 +421,7 @@ class FastHtmlRenderer:
             '</colgroup>'
         ]
 
-        for r in range(1, max_row + 1):
+        for r in range(min_row, max_row + 1):
             is_pb = (r in page_break_rows)
             r_height, r_hidden = cls._get_row_dimension(ws, r)
 
@@ -406,7 +442,7 @@ class FastHtmlRenderer:
 
             html_out.append(f'<tr{class_attr}{style_attr}>')
 
-            for c in range(1, max_col + 1):
+            for c in range(min_col, max_col + 1):
                 if (r, c) in skip_cells:
                     continue
 
@@ -416,6 +452,7 @@ class FastHtmlRenderer:
                 span_attrs = ""
                 if (r, c) in merged_spans:
                     rowspan, colspan = merged_spans[(r, c)]
+                    colspan = min(colspan, max_col - c + 1)
                     if rowspan > 1:
                         span_attrs += f' rowspan="{rowspan}"'
                     if colspan > 1:
