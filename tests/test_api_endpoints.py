@@ -8,7 +8,7 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "online"
-    assert "libreoffice_available" in data
+    assert "pdf_backend" in data
 
 def test_list_templates():
     response = client.get("/api/v1/templates")
@@ -67,6 +67,29 @@ def test_render_invoice_html_json():
     assert "data_base64" in data
     assert data["size_bytes"] > 0
     assert data["execution_time_ms"] > 0
+
+def test_render_invoice_pdf():
+    payload = {
+        "template_code": "INVOICE_REPORT",
+        "format": "pdf",
+        "response_mode": "binary",
+        "filename": "Invoice_Test.pdf",
+        "data": {
+            "company": {"name": "Apex Local Windows Test"},
+            "invoice_no": "INV-WINDOWS-100",
+            "invoice_date": "2026-10-22",
+            "customer": {"name": "John Doe"},
+            "items": [
+                {"item_code": "PROD-01", "description": "Local Testing License", "qty": 2, "unit_price": 250.00}
+            ]
+        }
+    }
+    response = client.post("/api/v1/reports/render", json=payload)
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    # PDF magic header %PDF-
+    assert response.content.startswith(b"%PDF-")
+    assert len(response.content) > 1000
 
 def test_render_dept_employees_xlsx():
     payload = {

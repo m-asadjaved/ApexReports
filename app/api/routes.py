@@ -13,6 +13,7 @@ from app.api.schemas import RenderRequest, RenderResponseJson, TemplateInfo, Tem
 from app.engine.template_processor import TemplateProcessor
 from app.renderer.fast_html_renderer import FastHtmlRenderer
 from app.renderer.libreoffice_pool import LibreOfficeRenderer
+from app.renderer.pdf_service import PdfService
 
 router = APIRouter()
 
@@ -36,8 +37,8 @@ def health_check():
     return {
         "status": "online",
         "service": settings.PROJECT_NAME,
+        "pdf_backend": PdfService.get_active_backend(),
         "libreoffice_available": LibreOfficeRenderer.is_available(),
-        "soffice_path": settings.get_soffice_executable(),
         "templates_directory": str(settings.TEMPLATES_DIR),
     }
 
@@ -114,7 +115,7 @@ def render_report(req: RenderRequest):
         output_bytes = buf.getvalue()
 
     elif req.format == "pdf":
-        output_bytes = LibreOfficeRenderer.convert_workbook_to_pdf(populated_wb)
+        output_bytes = PdfService.convert_to_pdf(populated_wb, filename=filename)
 
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported format '{req.format}'")
