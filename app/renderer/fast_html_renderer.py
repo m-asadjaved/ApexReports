@@ -1,4 +1,5 @@
 import io
+import re
 import base64
 import html
 from typing import Any, Dict, Set, Tuple
@@ -63,7 +64,20 @@ class FastHtmlRenderer:
 
                 if raw_bytes:
                     b64 = base64.b64encode(raw_bytes).decode("ascii")
-                    cell_images[coord] = f'<img src="data:image/png;base64,{b64}" style="max-height: 70px; max-width: 100%; object-fit: contain; display: block;" />'
+                    img_w = int(img.width) if getattr(img, "width", None) else None
+                    img_h = int(img.height) if getattr(img, "height", None) else None
+
+                    css_dims = []
+                    if img_w:
+                        css_dims.append(f"width: {img_w}px;")
+                    if img_h:
+                        css_dims.append(f"height: {img_h}px;")
+                    if not img_w and not img_h:
+                        css_dims.append("max-height: 80px; max-width: 100%;")
+                    css_dims.append("object-fit: contain; display: block;")
+
+                    style_str = " ".join(css_dims)
+                    cell_images[coord] = f'<img src="data:image/png;base64,{b64}" style="{style_str}" />'
             except Exception:
                 pass
 
@@ -125,10 +139,10 @@ class FastHtmlRenderer:
                         if cell.font.size:
                             style_parts.append(f"font-size: {int(cell.font.size)}pt")
                         if cell.font.color and getattr(cell.font.color, "rgb", None):
-                            rgb = str(cell.font.color.rgb)
-                            if len(rgb) == 8:
-                                rgb = rgb[2:]
-                            style_parts.append(f"color: #{rgb}")
+                            raw_rgb = getattr(cell.font.color, "rgb", None)
+                            if isinstance(raw_rgb, str) and re.match(r"^[0-9a-fA-F]{6,8}$", raw_rgb):
+                                rgb = raw_rgb[2:] if len(raw_rgb) == 8 else raw_rgb
+                                style_parts.append(f"color: #{rgb}")
 
                     if cell.alignment:
                         if cell.alignment.horizontal:
@@ -137,11 +151,9 @@ class FastHtmlRenderer:
                             style_parts.append(f"vertical-align: {cell.alignment.vertical}")
 
                     if cell.fill and getattr(cell.fill, "start_color", None):
-                        fill_rgb = getattr(cell.fill.start_color, "rgb", None)
-                        if fill_rgb and str(fill_rgb) != "00000000":
-                            s_rgb = str(fill_rgb)
-                            if len(s_rgb) == 8:
-                                s_rgb = s_rgb[2:]
+                        raw_fill = getattr(cell.fill.start_color, "rgb", None)
+                        if isinstance(raw_fill, str) and re.match(r"^[0-9a-fA-F]{6,8}$", raw_fill) and raw_fill != "00000000":
+                            s_rgb = raw_fill[2:] if len(raw_fill) == 8 else raw_fill
                             style_parts.append(f"background-color: #{s_rgb}")
 
                 style_attr = f' style="{"; ".join(style_parts)}"' if style_parts else ""

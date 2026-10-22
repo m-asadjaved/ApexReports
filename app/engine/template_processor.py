@@ -6,7 +6,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.pagebreak import Break
 from openpyxl.utils import get_column_letter
 
-from app.engine.template_parser import ExpressionEvaluator, parse_tag_attributes, TAG_REGEX
+from app.engine.template_parser import ExpressionEvaluator, parse_tag_attributes, parse_media_tag, TAG_REGEX
 from app.engine.cell_utils import copy_cell_style, render_cell_value
 from app.engine.formula_adjuster import FormulaAdjuster
 from app.engine.media_handler import MediaHandler
@@ -277,43 +277,49 @@ class TemplateProcessor:
 
         m_qr = re.match(r"^\{\{@qr\s+(.+?)\}\}$", tag_str)
         if m_qr:
-            parts = m_qr.group(1).split()
-            expr = parts[0]
-            attrs = parse_tag_attributes(" ".join(parts[1:]))
+            raw_content = m_qr.group(1).strip()
+            expr, attrs = parse_media_tag(raw_content)
             data_val = evaluator.evaluate_expression(expr, context)
             if data_val:
-                buf = MediaHandler.generate_qr_code(str(data_val))
+                req_w = attrs.get("width", 80)
+                req_h = attrs.get("height", 80)
+                buf = MediaHandler.generate_qr_code(str(data_val), width=req_w, height=req_h)
                 MediaHandler.embed_image_in_cell(
                     self.target_sheet,
                     cell_coord,
                     buf,
-                    width=attrs.get("width", 80),
-                    height=attrs.get("height", 80)
+                    width=req_w,
+                    height=req_h
                 )
             return
 
         m_bc = re.match(r"^\{\{@barcode\s+(.+?)\}\}$", tag_str)
         if m_bc:
-            parts = m_bc.group(1).split()
-            expr = parts[0]
-            attrs = parse_tag_attributes(" ".join(parts[1:]))
+            raw_content = m_bc.group(1).strip()
+            expr, attrs = parse_media_tag(raw_content)
             data_val = evaluator.evaluate_expression(expr, context)
             if data_val:
-                buf = MediaHandler.generate_barcode(str(data_val), code_format=attrs.get("format", "code128"))
+                req_w = attrs.get("width", 150)
+                req_h = attrs.get("height", 40)
+                buf = MediaHandler.generate_barcode(
+                    str(data_val), 
+                    code_format=attrs.get("format", "code128"),
+                    width=req_w,
+                    height=req_h
+                )
                 MediaHandler.embed_image_in_cell(
                     self.target_sheet,
                     cell_coord,
                     buf,
-                    width=attrs.get("width", 150),
-                    height=attrs.get("height", 40)
+                    width=req_w,
+                    height=req_h
                 )
             return
 
         m_img = re.match(r"^\{\{@image\s+(.+?)\}\}$", tag_str)
         if m_img:
-            parts = m_img.group(1).split()
-            expr = parts[0]
-            attrs = parse_tag_attributes(" ".join(parts[1:]))
+            raw_content = m_img.group(1).strip()
+            expr, attrs = parse_media_tag(raw_content)
             src_val = evaluator.evaluate_expression(expr, context)
             if src_val:
                 buf = MediaHandler.load_image_bytes(str(src_val))

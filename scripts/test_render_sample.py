@@ -27,18 +27,22 @@ def run_sample_renders():
     wb_inv = load_workbook(str(invoice_template), data_only=False)
     
     invoice_data = {
-        "company": {
-            "name": "Apex Enterprise Technologies Ltd."
-        },
-        "invoice_no": "INV-2026-9001",
-        "invoice_date": "2026-10-22",
-        "customer": {
-            "name": "Acme Global Corporation"
-        },
-        "items": [
-            {"item_code": "ORA-APX-01", "description": "Oracle APEX Custom Engine License", "qty": 5, "unit_price": 450.00},
-            {"item_code": "ORA-APX-02", "description": "Oracle Reports 6i Migration Consulting", "qty": 20, "unit_price": 125.00},
-            {"item_code": "SUP-247", "description": "24/7 Enterprise SLA Support Package", "qty": 1, "unit_price": 1500.00}
+        "invoices": [
+            {
+                "company": {
+                    "name": "Apex Enterprise Technologies Ltd."
+                },
+                "invoice_no": "INV-2026-9001",
+                "invoice_date": "2026-10-22",
+                "customer": {
+                    "name": "Acme Global Corporation"
+                },
+                "items": [
+                    {"item_code": "ORA-APX-01", "description": "Oracle APEX Custom Engine License", "qty": 5, "unit_price": 450.00},
+                    {"item_code": "ORA-APX-02", "description": "Oracle Reports 6i Migration Consulting", "qty": 20, "unit_price": 125.00},
+                    {"item_code": "SUP-247", "description": "24/7 Enterprise SLA Support Package", "qty": 1, "unit_price": 1500.00}
+                ]
+            }
         ]
     }
 

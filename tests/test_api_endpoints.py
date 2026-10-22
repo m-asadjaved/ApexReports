@@ -25,13 +25,17 @@ def test_render_invoice_html_binary():
         "format": "html",
         "response_mode": "binary",
         "data": {
-            "company": {"name": "Apex Enterprise Solutions Inc."},
-            "invoice_no": "INV-2026-8801",
-            "invoice_date": "2026-10-22",
-            "customer": {"name": "Oracle Corporation"},
-            "items": [
-                {"item_code": "LIC-01", "description": "APEX Extension License", "qty": 10, "unit_price": 450.00},
-                {"item_code": "SUP-02", "description": "Enterprise 24/7 Support", "qty": 1, "unit_price": 1200.00}
+            "invoices": [
+                {
+                    "company": {"name": "Apex Enterprise Solutions Inc."},
+                    "invoice_no": "INV-2026-8801",
+                    "invoice_date": "2026-10-22",
+                    "customer": {"name": "Oracle Corporation"},
+                    "items": [
+                        {"item_code": "LIC-01", "description": "APEX Extension License", "qty": 10, "unit_price": 450.00},
+                        {"item_code": "SUP-02", "description": "Enterprise 24/7 Support", "qty": 1, "unit_price": 1200.00}
+                    ]
+                }
             ]
         }
     }
@@ -49,12 +53,16 @@ def test_render_invoice_html_json():
         "format": "html",
         "response_mode": "json",
         "data": {
-            "company": {"name": "Apex Enterprise Solutions Inc."},
-            "invoice_no": "INV-2026-8802",
-            "invoice_date": "2026-10-22",
-            "customer": {"name": "Global Logistics LLC"},
-            "items": [
-                {"item_code": "ITM-99", "description": "Consulting Hour", "qty": 5, "unit_price": 120.00}
+            "invoices": [
+                {
+                    "company": {"name": "Apex Enterprise Solutions Inc."},
+                    "invoice_no": "INV-2026-8802",
+                    "invoice_date": "2026-10-22",
+                    "customer": {"name": "Global Logistics LLC"},
+                    "items": [
+                        {"item_code": "ITM-99", "description": "Consulting Hour", "qty": 5, "unit_price": 120.00}
+                    ]
+                }
             ]
         }
     }
@@ -75,12 +83,16 @@ def test_render_invoice_pdf():
         "response_mode": "binary",
         "filename": "Invoice_Test.pdf",
         "data": {
-            "company": {"name": "Apex Local Windows Test"},
-            "invoice_no": "INV-WINDOWS-100",
-            "invoice_date": "2026-10-22",
-            "customer": {"name": "John Doe"},
-            "items": [
-                {"item_code": "PROD-01", "description": "Local Testing License", "qty": 2, "unit_price": 250.00}
+            "invoices": [
+                {
+                    "company": {"name": "Apex Local Windows Test"},
+                    "invoice_no": "INV-WINDOWS-100",
+                    "invoice_date": "2026-10-22",
+                    "customer": {"name": "John Doe"},
+                    "items": [
+                        {"item_code": "PROD-01", "description": "Local Testing License", "qty": 2, "unit_price": 250.00}
+                    ]
+                }
             ]
         }
     }

@@ -4,9 +4,6 @@ import jinja2
 
 TAG_REGEX = re.compile(r"\{\{([^{}]+)\}\}")
 
-class Directive:
-    pass
-
 class ExpressionEvaluator:
     """Safe expression evaluator using Jinja2."""
     def __init__(self):
@@ -20,6 +17,9 @@ class ExpressionEvaluator:
     def evaluate_expression(self, expr: str, context: Dict[str, Any]) -> Any:
         """Evaluates an expression like 'item.price * item.qty' or 'user.name' against context."""
         expr = expr.strip()
+        if not expr:
+            return ""
+
         # Direct key lookup optimization
         if expr in context:
             return context[expr]
@@ -41,7 +41,6 @@ class ExpressionEvaluator:
         try:
             template = self.env.from_string(f"{{{{ {expr} }}}}")
             result = template.render(context)
-            # Try type casting back to number/bool if applicable
             if result == "True":
                 return True
             if result == "False":
@@ -65,9 +64,9 @@ class ExpressionEvaluator:
             return False
 
 def parse_tag_attributes(attr_string: str) -> Dict[str, Any]:
-    """Parses key=value attributes from directives like 'page_break=true reset_page=true width=100'."""
+    """Parses key=value attributes from directives."""
     attrs: Dict[str, Any] = {}
-    pattern = re.compile(r'(\w+)=(?:"([^"]*)"|\'([^\']*)\'|(\S+))')
+    pattern = re.compile(r'(\b\w+)=(?:"([^"]*)"|\'([^\']*)\'|(\S+))')
     for match in pattern.finditer(attr_string):
         key = match.group(1)
         val = match.group(2) or match.group(3) or match.group(4)
@@ -84,3 +83,33 @@ def parse_tag_attributes(attr_string: str) -> Dict[str, Any]:
             except ValueError:
                 attrs[key] = val
     return attrs
+
+TRAILING_ATTR_REGEX = re.compile(r'\s+([a-zA-Z_]\w*)=(?:"([^"]*)"|\'([^\']*)\'|([^\s"\']+))\s*$')
+
+def parse_media_tag(content: str) -> Tuple[str, Dict[str, Any]]:
+    """Extracts expression and trailing key=value attributes from media directives.
+    e.g. "'https://test.com/id=' + id width=200 height=100 format=code128"
+    Returns: ("'https://test.com/id=' + id", {"width": 200, "height": 100, "format": "code128"})
+    """
+    text = content.strip()
+    attrs: Dict[str, Any] = {}
+
+    while True:
+        m = TRAILING_ATTR_REGEX.search(text)
+        if not m:
+            break
+        key = m.group(1)
+        val = m.group(2) or m.group(3) or m.group(4)
+        if val.lower() == "true":
+            attrs[key] = True
+        elif val.lower() == "false":
+            attrs[key] = False
+        else:
+            try:
+                attrs[key] = float(val) if "." in val else int(val)
+            except ValueError:
+                attrs[key] = val
+
+        text = text[:m.start()].strip()
+
+    return text, attrs

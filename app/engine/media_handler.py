@@ -14,57 +14,87 @@ class MediaHandler:
     """Handles generating and embedding dynamic QR codes, barcodes, and images into openpyxl worksheets."""
 
     @staticmethod
-    def generate_qr_code(data: str, box_size: int = 4, border: int = 1) -> io.BytesIO:
-        """Generates a QR Code image as an in-memory PNG buffer."""
+    def generate_qr_code(data: str, width: Optional[int] = None, height: Optional[int] = None) -> io.BytesIO:
+        """Generates a QR Code image as an in-memory PNG buffer with specified dimensions."""
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
-            box_size=box_size,
-            border=border,
+            box_size=10,
+            border=1,
         )
         qr.add_data(data)
         qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
+        img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+
+        if width and height:
+            img = img.resize((int(width), int(height)), PILImage.Resampling.LANCZOS)
+        elif width:
+            aspect = img.height / max(img.width, 1)
+            img = img.resize((int(width), int(width * aspect)), PILImage.Resampling.LANCZOS)
+        elif height:
+            aspect = img.width / max(img.height, 1)
+            img = img.resize((int(height * aspect), int(height)), PILImage.Resampling.LANCZOS)
+
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         buf.seek(0)
         return buf
 
     @staticmethod
-    def generate_barcode(data: str, code_format: str = "code128") -> io.BytesIO:
-        """Generates a 1D barcode (Code128, EAN13, Code39) as an in-memory PNG buffer."""
+    def generate_barcode(
+        data: str, 
+        code_format: str = "code128", 
+        width: Optional[int] = None, 
+        height: Optional[int] = None
+    ) -> io.BytesIO:
+        """Generates a 1D barcode (Code128, EAN13, Code39) resized to requested dimensions."""
         code_format_clean = code_format.lower().replace("-", "")
         writer = ImageWriter()
         try:
             barcode_cls = barcode.get_barcode_class(code_format_clean)
         except barcode.errors.BarcodeNotFoundError:
             barcode_cls = barcode.get_barcode_class("code128")
-        
-        buf = io.BytesIO()
+
+        temp_buf = io.BytesIO()
         try:
             bc = barcode_cls(str(data), writer=writer)
-            bc.write(buf, options={"write_text": False, "quiet_zone": 1.0})
+            bc.write(temp_buf, options={"write_text": False, "quiet_zone": 1.0})
         except Exception:
             bc = barcode.get_barcode_class("code128")(str(data), writer=writer)
-            bc.write(buf, options={"write_text": False, "quiet_zone": 1.0})
-            
-        buf.seek(0)
-        return buf
+            bc.write(temp_buf, options={"write_text": False, "quiet_zone": 1.0})
+
+        temp_buf.seek(0)
+
+        # Resize barcode image to requested dimensions
+        pil_img = PILImage.open(temp_buf)
+        if width and height:
+            pil_img = pil_img.resize((int(width), int(height)), PILImage.Resampling.LANCZOS)
+        elif width:
+            aspect = pil_img.height / max(pil_img.width, 1)
+            pil_img = pil_img.resize((int(width), int(width * aspect)), PILImage.Resampling.LANCZOS)
+        elif height:
+            aspect = pil_img.width / max(pil_img.height, 1)
+            pil_img = pil_img.resize((int(height * aspect), int(height)), PILImage.Resampling.LANCZOS)
+
+        out_buf = io.BytesIO()
+        pil_img.save(out_buf, format="PNG")
+        out_buf.seek(0)
+        return out_buf
 
     @classmethod
     def load_image_bytes(cls, source: str) -> Optional[io.BytesIO]:
         """Loads image bytes from either a base64 string, HTTP URL, or local path."""
         if not source:
             return None
-            
+
         source = str(source).strip()
-        
-        # Base64 data URI or raw base64
+
+        # Base64 data URI
         if source.startswith("data:image/") or ";base64," in source:
             base64_data = source.split(";base64,")[-1]
             return io.BytesIO(base64.b64decode(base64_data))
-        
-        # HTTP / HTTPS URL
+
+        # HTTP URL
         if source.startswith("http://") or source.startswith("https://"):
             try:
                 resp = httpx.get(source, timeout=10.0, follow_redirects=True)
@@ -73,7 +103,7 @@ class MediaHandler:
             except Exception:
                 return None
 
-        # Check if it looks like raw base64 (long alphanumeric string)
+        # Raw base64 string
         if len(source) > 100 and not any(c in source for c in ["\n", "\r", " "]):
             try:
                 decoded = base64.b64decode(source)
@@ -92,18 +122,11 @@ class MediaHandler:
         width: Optional[int] = None, 
         height: Optional[int] = None
     ) -> None:
-        """Places an openpyxl Image into the worksheet anchored at cell_coord."""
+        """Places an openpyxl Image into the worksheet anchored at cell_coord with specified dimensions."""
         img = OpenPyXlImage(img_buffer)
-        if width and height:
-            img.width = width
-            img.height = height
-        elif width and not height:
-            aspect = img.height / max(img.width, 1)
-            img.width = width
-            img.height = int(width * aspect)
-        elif height and not width:
-            aspect = img.width / max(img.height, 1)
-            img.height = height
-            img.width = int(height * aspect)
-            
+        if width:
+            img.width = int(width)
+        if height:
+            img.height = int(height)
+
         ws.add_image(img, cell_coord)
