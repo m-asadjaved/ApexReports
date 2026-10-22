@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  reports-engine:
+    build: .
+    container_name: apex-reports-engine
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount templates directory so you can add/edit templates without restarting container
+      - ./templates:/app/templates
+      - ./output:/app/output
+    environment:
+      - PROJECT_NAME=ApexReports Engine
+      - SOFFICE_TIMEOUT_SECONDS=30
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
