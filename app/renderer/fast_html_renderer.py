@@ -2,11 +2,12 @@ import io
 import re
 import base64
 import html
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import get_column_letter
 from app.core.config import settings
 from app.engine.formula_evaluator import FormulaEvaluator
+from app.renderer.color_resolver import ExcelColorResolver
 
 class FastHtmlRenderer:
     """Renders an openpyxl Worksheet into responsive, stylized HTML with calculated formulas in < 25ms."""
@@ -40,16 +41,12 @@ class FastHtmlRenderer:
     }
 
     @classmethod
-    def _format_border_side(cls, side: Any) -> Optional[str]:
-        """Maps an openpyxl Side border to CSS style string."""
+    def _format_border_side(cls, side: Any, theme_colors: Optional[List[str]] = None) -> Optional[str]:
+        """Maps an openpyxl Side border to CSS style string with exact color."""
         if not side or not getattr(side, "style", None) or side.style == "none":
             return None
         css_style = cls.BORDER_STYLE_MAP.get(side.style, "1px solid")
-        color = "#cbd5e1"
-        if getattr(side, "color", None) and getattr(side.color, "rgb", None):
-            raw_rgb = getattr(side.color, "rgb")
-            if isinstance(raw_rgb, str) and re.match(r"^[0-9a-fA-F]{6,8}$", raw_rgb):
-                color = f"#{raw_rgb[2:] if len(raw_rgb) == 8 else raw_rgb}"
+        color = ExcelColorResolver.resolve_color(getattr(side, "color", None), theme_colors, default="#cbd5e1")
         return f"{css_style} {color}"
 
     @classmethod
@@ -74,6 +71,9 @@ class FastHtmlRenderer:
         """Converts openpyxl worksheet into HTML with inline CSS styling, page breaks, and calculated values."""
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
+
+        # Extract theme color palette from workbook
+        theme_colors = ExcelColorResolver.extract_theme_colors(getattr(ws, "parent", None))
 
         # Determine base document font
         if font_family:
@@ -230,11 +230,10 @@ class FastHtmlRenderer:
                             style_parts.append("font-style: italic")
                         if cell.font.size:
                             style_parts.append(f"font-size: {int(cell.font.size)}pt")
-                        if cell.font.color and getattr(cell.font.color, "rgb", None):
-                            raw_rgb = getattr(cell.font.color, "rgb", None)
-                            if isinstance(raw_rgb, str) and re.match(r"^[0-9a-fA-F]{6,8}$", raw_rgb):
-                                rgb = raw_rgb[2:] if len(raw_rgb) == 8 else raw_rgb
-                                style_parts.append(f"color: #{rgb}")
+
+                        f_color = ExcelColorResolver.resolve_font_color(cell.font, theme_colors)
+                        if f_color:
+                            style_parts.append(f"color: {f_color}")
 
                     if cell.alignment:
                         if cell.alignment.horizontal:
@@ -242,23 +241,21 @@ class FastHtmlRenderer:
                         if cell.alignment.vertical:
                             style_parts.append(f"vertical-align: {cell.alignment.vertical}")
 
-                    if cell.fill and getattr(cell.fill, "start_color", None):
-                        raw_fill = getattr(cell.fill.start_color, "rgb", None)
-                        if isinstance(raw_fill, str) and re.match(r"^[0-9a-fA-F]{6,8}$", raw_fill) and raw_fill != "00000000":
-                            s_rgb = raw_fill[2:] if len(raw_fill) == 8 else raw_fill
-                            style_parts.append(f"background-color: #{s_rgb}")
+                    bg_color = ExcelColorResolver.resolve_fill(cell.fill, theme_colors)
+                    if bg_color:
+                        style_parts.append(f"background-color: {bg_color}")
 
                     if cell.border:
-                        top_b = cls._format_border_side(cell.border.top)
+                        top_b = cls._format_border_side(cell.border.top, theme_colors)
                         if top_b:
                             style_parts.append(f"border-top: {top_b}")
-                        bot_b = cls._format_border_side(cell.border.bottom)
+                        bot_b = cls._format_border_side(cell.border.bottom, theme_colors)
                         if bot_b:
                             style_parts.append(f"border-bottom: {bot_b}")
-                        left_b = cls._format_border_side(cell.border.left)
+                        left_b = cls._format_border_side(cell.border.left, theme_colors)
                         if left_b:
                             style_parts.append(f"border-left: {left_b}")
-                        right_b = cls._format_border_side(cell.border.right)
+                        right_b = cls._format_border_side(cell.border.right, theme_colors)
                         if right_b:
                             style_parts.append(f"border-right: {right_b}")
 
