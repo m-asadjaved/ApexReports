@@ -352,15 +352,29 @@ class TemplateProcessor:
             if min_r in self.global_row_mapping and max_r in self.global_row_mapping:
                 mapped_start = self.global_row_mapping[min_r]
                 mapped_end = self.global_row_mapping[max_r]
-                if mapped_start and mapped_end:
-                    target_min_r = mapped_start[0]
-                    target_max_r = mapped_end[-1]
-                    try:
-                        self.target_sheet.merge_cells(
-                            start_row=target_min_r,
-                            start_column=min_c,
-                            end_row=target_max_r,
-                            end_column=max_c
-                        )
-                    except Exception:
-                        pass
+
+                # Case 1: Single row merge across columns (e.g. A2:D2)
+                if min_r == max_r:
+                    for target_r in mapped_start:
+                        try:
+                            self.target_sheet.merge_cells(
+                                start_row=target_r,
+                                start_column=min_c,
+                                end_row=target_r,
+                                end_column=max_c
+                            )
+                        except Exception:
+                            pass
+                # Case 2: Multi-row block merge
+                else:
+                    if len(mapped_start) == len(mapped_end):
+                        for idx in range(len(mapped_start)):
+                            try:
+                                self.target_sheet.merge_cells(
+                                    start_row=mapped_start[idx],
+                                    start_column=min_c,
+                                    end_row=mapped_end[idx],
+                                    end_column=max_c
+                                )
+                            except Exception:
+                                pass
