@@ -11,14 +11,21 @@ class FastHtmlRenderer:
 
     @classmethod
     def render(cls, ws: Worksheet, title: str = "Report Preview") -> str:
-        """Converts openpyxl worksheet into HTML with inline CSS styling and calculated values."""
+        """Converts openpyxl worksheet into HTML with inline CSS styling, page breaks, and calculated values."""
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
 
         # 1. Calculate all formulas in-memory (SUM, arithmetic, etc.)
         calc_cache = FormulaEvaluator.evaluate_worksheet(ws)
 
-        # 2. Track merged cells: (row, col) -> (rowspan, colspan)
+        # 2. Extract page breaks (1-based row index that starts a new page)
+        page_break_rows: Set[int] = set()
+        if hasattr(ws, "row_breaks") and hasattr(ws.row_breaks, "brk"):
+            for b in ws.row_breaks.brk:
+                if getattr(b, "id", None) is not None:
+                    page_break_rows.add(b.id + 1)
+
+        # 3. Track merged cells: (row, col) -> (rowspan, colspan)
         merged_spans: Dict[Tuple[int, int], Tuple[int, int]] = {}
         skip_cells: Set[Tuple[int, int]] = set()
 
@@ -33,11 +40,10 @@ class FastHtmlRenderer:
                     if (r, c) != (min_r, min_c):
                         skip_cells.add((r, c))
 
-        # 3. Map embedded images (barcodes, QR codes, logos) to cell coordinates
+        # 4. Map embedded images (barcodes, QR codes, logos) to cell coordinates
         cell_images: Dict[str, str] = {}
         for img in getattr(ws, "_images", []):
             try:
-                # Resolve coordinate from anchor
                 if isinstance(img.anchor, str):
                     coord = img.anchor.upper()
                 elif hasattr(img, "anchor") and hasattr(img.anchor, "_from"):
@@ -47,7 +53,6 @@ class FastHtmlRenderer:
                 else:
                     continue
 
-                # Extract PNG bytes from PIL image
                 raw_bytes = b""
                 if hasattr(img.ref, "save"):
                     buf = io.BytesIO()
@@ -71,6 +76,15 @@ class FastHtmlRenderer:
             '.report-container { max-width: 1100px; margin: 0 auto; background: #ffffff; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; overflow-x: auto; }',
             'table.report-table { border-collapse: collapse; width: 100%; font-size: 13px; line-height: 1.4; }',
             'table.report-table td { padding: 6px 10px; border: 1px solid #e2e8f0; vertical-align: middle; }',
+            '@media print {',
+            '  body { margin: 0; background: none; }',
+            '  .report-container { box-shadow: none; padding: 0; max-width: 100%; border-radius: 0; }',
+            '  .page-break { page-break-before: always !important; break-before: page !important; }',
+            '}',
+            '@media screen {',
+            '  .page-break td { border-top: 4px dashed #6366f1 !important; }',
+            '  .page-break-indicator { background: #eef2ff; color: #4f46e5; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 2px; padding: 8px 0; border: 1px dashed #6366f1; border-left: none; border-right: none; }',
+            '}',
             '</style>',
             '</head><body>',
             '<div class="report-container">',
@@ -78,7 +92,14 @@ class FastHtmlRenderer:
         ]
 
         for r in range(1, max_row + 1):
-            html_out.append('<tr>')
+            is_pb = (r in page_break_rows)
+
+            # In screen view, show an explicit visual page-break divider row
+            if is_pb:
+                html_out.append(f'<tr class="page-break" style="page-break-before: always !important; break-before: page !important;">')
+            else:
+                html_out.append('<tr>')
+
             for c in range(1, max_col + 1):
                 if (r, c) in skip_cells:
                     continue
@@ -86,7 +107,6 @@ class FastHtmlRenderer:
                 cell = ws.cell(row=r, column=c)
                 coord = f"{get_column_letter(c)}{r}"
 
-                # Attributes for merged cells
                 span_attrs = ""
                 if (r, c) in merged_spans:
                     rowspan, colspan = merged_spans[(r, c)]
@@ -95,7 +115,6 @@ class FastHtmlRenderer:
                     if colspan > 1:
                         span_attrs += f' colspan="{colspan}"'
 
-                # Extract styling
                 style_parts = []
                 if cell.has_style:
                     if cell.font:
@@ -127,18 +146,14 @@ class FastHtmlRenderer:
 
                 style_attr = f' style="{"; ".join(style_parts)}"' if style_parts else ""
 
-                # Determine cell display value
-                # If it was a formula, use calculated value from calc_cache!
                 if (r, c) in calc_cache:
                     raw_val = calc_cache[(r, c)]
                 else:
                     raw_val = cell.value
 
-                # Format according to cell's number format
                 num_format = getattr(cell, "number_format", None)
                 formatted_val = FormulaEvaluator.format_cell_value(raw_val, num_format)
 
-                # Check if there is an embedded image for this cell
                 img_html = cell_images.get(coord, "")
                 content_html = img_html if img_html else html.escape(formatted_val)
 
