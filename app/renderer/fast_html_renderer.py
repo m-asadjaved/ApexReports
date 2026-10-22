@@ -4,7 +4,7 @@ import base64
 import html
 from typing import Any, Dict, List, Optional, Set, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
-from openpyxl.utils import get_column_letter, column_index_from_string
+from openpyxl.utils import get_column_letter
 from app.core.config import settings
 from app.engine.formula_evaluator import FormulaEvaluator
 from app.renderer.color_resolver import ExcelColorResolver
@@ -40,6 +40,22 @@ class FastHtmlRenderer:
         "comic sans ms": "'Comic Sans MS', cursive",
     }
 
+    VERTICAL_ALIGN_MAP = {
+        "center": "middle",
+        "top": "top",
+        "bottom": "bottom",
+        "justify": "middle",
+    }
+
+    @classmethod
+    def _excel_col_width_to_pt(cls, col_width_chars: Optional[float]) -> float:
+        """Converts Excel column width (character count) to CSS points (pt)."""
+        if col_width_chars is None or col_width_chars <= 0:
+            return 0.0
+        # Standard Excel conversion formula: pixels = round(chars * 7 + 5), points = pixels * 0.75
+        pixels = round(col_width_chars * 7.0 + 5.0)
+        return round(pixels * 0.75, 2)
+
     @classmethod
     def _format_border_side(cls, side: Any, theme_colors: Optional[List[str]] = None) -> Optional[str]:
         """Maps an openpyxl Side border to CSS style string with exact color."""
@@ -61,111 +77,16 @@ class FastHtmlRenderer:
         return f"'{clean}', 'Segoe UI', Arial, sans-serif"
 
     @classmethod
-    def _get_column_dimension(cls, ws: Worksheet, col_idx: int) -> Tuple[float, bool]:
-        """
-        Retrieves the effective width (in character units) and hidden status for a 1-based column index.
-        Checks single column letter, column ranges (e.g. 'A:C'), and sheet defaults.
-        """
-        col_letter = get_column_letter(col_idx)
-        dim = None
-
-        if col_letter in ws.column_dimensions:
-            dim = ws.column_dimensions[col_letter]
-        else:
-            # Check for range dimensions e.g. 'A:E'
-            for key, candidate in ws.column_dimensions.items():
-                if ":" in key:
-                    parts = key.split(":")
-                    if len(parts) == 2:
-                        try:
-                            start_i = column_index_from_string(parts[0])
-                            end_i = column_index_from_string(parts[1])
-                            if start_i <= col_idx <= end_i:
-                                dim = candidate
-                                break
-                        except Exception:
-                            pass
-
-        hidden = bool(dim.hidden) if (dim and getattr(dim, "hidden", None) is not None) else False
-        width = None
-        if dim and getattr(dim, "width", None) is not None:
-            try:
-                width = float(dim.width)
-            except (ValueError, TypeError):
-                width = None
-
-        if width is None:
-            if hasattr(ws, "sheet_format") and getattr(ws.sheet_format, "defaultColWidth", None) is not None:
-                try:
-                    width = float(ws.sheet_format.defaultColWidth)
-                except (ValueError, TypeError):
-                    width = 8.43
-            else:
-                width = 8.43
-
-        return width, hidden
-
-    @classmethod
-    def _excel_col_width_to_pixels(cls, char_width: float) -> int:
-        """Converts Excel character column width to CSS screen/print pixels at 96 DPI."""
-        if char_width <= 0:
-            return 0
-        if char_width < 1.0:
-            return max(1, int(round(char_width * 12.0)))
-        return int(round(char_width * 7.0 + 5.0))
-
-    @classmethod
-    def _get_row_dimension(cls, ws: Worksheet, row_num: int) -> Tuple[Optional[float], bool]:
-        """
-        Retrieves the height (in points) and hidden status for a 1-based row index.
-        Returns (height_pt, is_hidden).
-        """
-        row_dim = ws.row_dimensions.get(row_num)
-        if not row_dim:
-            return None, False
-
-        hidden = bool(row_dim.hidden) if getattr(row_dim, "hidden", None) is not None else False
-        height = None
-        if getattr(row_dim, "height", None) is not None:
-            try:
-                height = float(row_dim.height)
-            except (ValueError, TypeError):
-                height = None
-
-        return height, hidden
-
-    @classmethod
     def render(
         cls, 
         ws: Worksheet, 
         title: str = "Report Preview", 
         show_gridlines: Optional[bool] = None,
-        font_family: Optional[str] = None,
-        fit_to_page: bool = True
+        font_family: Optional[str] = None
     ) -> str:
         """Converts openpyxl worksheet into HTML with inline CSS styling, page breaks, and calculated values."""
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
-
-        # Ensure max_col covers any merged ranges
-        for rng in getattr(ws.merged_cells, "ranges", []):
-            if getattr(rng, "max_col", 0) > max_col:
-                max_col = rng.max_col
-
-        # Ensure max_col covers any columns with explicit custom widths
-        for k, col_dim in ws.column_dimensions.items():
-            if col_dim and getattr(col_dim, "width", None) is not None:
-                if ":" in k:
-                    parts = k.split(":")
-                    try:
-                        max_col = max(max_col, column_index_from_string(parts[1]))
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        max_col = max(max_col, column_index_from_string(k))
-                    except Exception:
-                        pass
 
         # Extract theme color palette from workbook
         theme_colors = ExcelColorResolver.extract_theme_colors(getattr(ws, "parent", None))
@@ -255,56 +176,6 @@ class FastHtmlRenderer:
             except Exception:
                 pass
 
-        # Determine default row height (in pt) from sheet format or default to 15.0pt
-        default_row_height = 15.0
-        if hasattr(ws, "sheet_format") and getattr(ws.sheet_format, "defaultRowHeight", None) is not None:
-            try:
-                default_row_height = float(ws.sheet_format.defaultRowHeight)
-            except (ValueError, TypeError):
-                default_row_height = 15.0
-
-        # Build column dimensions and colgroup elements
-        col_dims_raw: List[Tuple[int, int, bool]] = []
-        hidden_cols: Set[int] = set()
-        total_visible_table_width_px = 0
-
-        for c in range(1, max_col + 1):
-            w_chars, col_hidden = cls._get_column_dimension(ws, c)
-            col_px = cls._excel_col_width_to_pixels(w_chars)
-            if col_hidden:
-                hidden_cols.add(c)
-                col_dims_raw.append((c, col_px, True))
-            else:
-                total_visible_table_width_px += col_px
-                col_dims_raw.append((c, col_px, False))
-
-        # Calculate proportional percentages so total equals exactly 100.00%
-        colgroup_tags: List[str] = []
-        if fit_to_page and total_visible_table_width_px > 0:
-            visible_items = [item for item in col_dims_raw if not item[2]]
-            pct_accum = 0.0
-            col_pct_map: Dict[int, float] = {}
-            for idx, (c, col_px, _) in enumerate(visible_items):
-                if idx == len(visible_items) - 1:
-                    pct = round(100.0 - pct_accum, 2)
-                else:
-                    pct = round((col_px / total_visible_table_width_px) * 100.0, 2)
-                    pct_accum += pct
-                col_pct_map[c] = max(0.1, pct)
-
-            for c, col_px, col_hidden in col_dims_raw:
-                if col_hidden:
-                    colgroup_tags.append('<col style="display: none; width: 0px;" />')
-                else:
-                    pct = col_pct_map.get(c, 10.0)
-                    colgroup_tags.append(f'<col style="width: {pct:.2f}%;" />')
-        else:
-            for c, col_px, col_hidden in col_dims_raw:
-                if col_hidden:
-                    colgroup_tags.append('<col style="display: none; width: 0px;" />')
-                else:
-                    colgroup_tags.append(f'<col style="width: {col_px}px;" />')
-
         if show_gridlines is None:
             display_gridlines = getattr(ws.print_options, "gridLines", False) is True
         else:
@@ -312,47 +183,35 @@ class FastHtmlRenderer:
 
         table_class = "report-table show-gridlines" if display_gridlines else "report-table"
 
-        # Determine base table font size and cell padding for optimal fit across columns
-        if fit_to_page:
-            if max_col >= 12 or total_visible_table_width_px > 1100:
-                base_font_size = "9.5px"
-                cell_padding = "2px 3px"
-            elif max_col >= 8 or total_visible_table_width_px > 800:
-                base_font_size = "11px"
-                cell_padding = "2px 4px"
-            elif max_col >= 6:
-                base_font_size = "12px"
-                cell_padding = "3px 5px"
+        # 5. Extract column widths and hidden statuses
+        default_col_width = getattr(ws.sheet_format, "defaultColWidth", None)
+        if not default_col_width or default_col_width <= 0:
+            default_col_width = 8.43
+        default_col_pt = cls._excel_col_width_to_pt(default_col_width)
+
+        col_widths_pt: Dict[int, float] = {}
+        col_hidden: Set[int] = set()
+
+        for c in range(1, max_col + 1):
+            col_letter = get_column_letter(c)
+            col_dim = ws.column_dimensions.get(col_letter) if hasattr(ws, "column_dimensions") else None
+            if col_dim:
+                if getattr(col_dim, "hidden", False):
+                    col_hidden.add(c)
+                    col_widths_pt[c] = 0.0
+                elif col_dim.width is not None and col_dim.width > 0:
+                    col_widths_pt[c] = cls._excel_col_width_to_pt(col_dim.width)
+                else:
+                    col_widths_pt[c] = default_col_pt
             else:
-                base_font_size = "13px"
-                cell_padding = "4px 8px"
-        else:
-            base_font_size = "13px"
-            cell_padding = "3px 6px"
+                col_widths_pt[c] = default_col_pt
 
-        # Check page setup for landscape / portrait / margins
-        page_setup_css = []
-        orientation = getattr(getattr(ws, "page_setup", None), "orientation", None)
+        total_table_width_pt = sum(w for c, w in col_widths_pt.items() if c not in col_hidden)
 
-        # Auto-detect landscape if report is wide (8+ cols or > 780px) and not explicitly forced to portrait
-        if orientation == "landscape" or (orientation != "portrait" and (max_col >= 8 or total_visible_table_width_px > 780)):
-            page_setup_css.append("size: landscape;")
-        elif orientation == "portrait":
-            page_setup_css.append("size: portrait;")
-
-        margins = getattr(ws, "page_margins", None)
-        if margins:
-            top_in = getattr(margins, "top", 0.5) or 0.5
-            bottom_in = getattr(margins, "bottom", 0.5) or 0.5
-            left_in = getattr(margins, "left", 0.4) or 0.4
-            right_in = getattr(margins, "right", 0.4) or 0.4
-            page_setup_css.append(f"margin: {top_in}in {right_in}in {bottom_in}in {left_in}in;")
-        else:
-            page_setup_css.append("margin: 0.35in;")
-
-        page_rule = f"@page {{ {' '.join(page_setup_css)} }}" if page_setup_css else ""
-
-        table_width_style = "width: 100%;" if fit_to_page else f"min-width: {total_visible_table_width_px}px;"
+        # 6. Extract default row height
+        default_row_height = getattr(ws.sheet_format, "defaultRowHeight", None)
+        if not default_row_height or default_row_height <= 0:
+            default_row_height = 15.0
 
         html_out = [
             '<!DOCTYPE html>',
@@ -360,17 +219,14 @@ class FastHtmlRenderer:
             f'<title>{html.escape(title)}</title>',
             '<style>',
             f'body {{ font-family: {base_font_css}; margin: 20px; background-color: #f8fafc; color: #1e293b; }}',
-            '.report-container { width: 100%; max-width: 100%; margin: 0 auto; background: #ffffff; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; box-sizing: border-box; overflow-x: auto; }',
-            f'table.report-table {{ border-collapse: collapse; width: 100%; max-width: 100%; table-layout: fixed; font-size: {base_font_size}; line-height: 1.25; }}',
-            f'table.report-table tr {{ height: {default_row_height}pt; }}',
-            f'table.report-table td {{ padding: {cell_padding}; border: none; vertical-align: middle; box-sizing: border-box; word-wrap: break-word; overflow-wrap: break-word; }}',
-            'table.report-table.show-gridlines td {{ border: 1px solid #e2e8f0; }}',
-            f'{page_rule}',
+            '.report-container { max-width: 1100px; margin: 0 auto; background: #ffffff; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; overflow-x: auto; }',
+            'table.report-table { border-collapse: collapse; table-layout: fixed; font-size: 13px; line-height: 1.4; margin: 0 auto; }',
+            'table.report-table td { padding: 4px 6px; border: none; vertical-align: middle; box-sizing: border-box; }',
+            'table.report-table.show-gridlines td { border: 1px solid #e2e8f0; }',
             '@media print {',
-            '  body { margin: 0; background: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }',
-            '  .report-container { box-shadow: none; padding: 0; width: 100% !important; max-width: 100% !important; border-radius: 0; }',
+            '  body { margin: 0; background: none; }',
+            '  .report-container { box-shadow: none; padding: 0; max-width: 100%; border-radius: 0; }',
             '  .page-break { page-break-before: always !important; break-before: page !important; }',
-            '  table.report-table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; }',
             '}',
             '@media screen {',
             '  .page-break td { border-top: 4px dashed #6366f1 !important; }',
@@ -378,33 +234,51 @@ class FastHtmlRenderer:
             '}',
             '</style>',
             '</head><body>',
-            '<div class="report-container">',
-            f'<table class="{table_class}" style="{table_width_style}">',
-            '<colgroup>',
-            *colgroup_tags,
-            '</colgroup>'
+            '<div class="report-container">'
         ]
+
+        # Table opening tag with exact width and table-layout: fixed
+        table_style_parts = ["table-layout: fixed"]
+        if total_table_width_pt > 0:
+            table_style_parts.append(f"width: {total_table_width_pt}pt")
+        table_style_attr = f' style="{"; ".join(table_style_parts)};"'
+
+        html_out.append(f'<table class="{table_class}"{table_style_attr}>')
+
+        # Emit colgroup matching Excel column widths
+        html_out.append('<colgroup>')
+        for c in range(1, max_col + 1):
+            if c in col_hidden:
+                html_out.append('<col style="width: 0pt; display: none;" />')
+            else:
+                w_pt = col_widths_pt[c]
+                html_out.append(f'<col style="width: {w_pt}pt;" />')
+        html_out.append('</colgroup>')
 
         for r in range(1, max_row + 1):
             is_pb = (r in page_break_rows)
-            r_height, r_hidden = cls._get_row_dimension(ws, r)
 
-            tr_styles = []
-            tr_classes = []
+            row_dim = ws.row_dimensions.get(r) if hasattr(ws, "row_dimensions") else None
+            is_row_hidden = getattr(row_dim, "hidden", False) if row_dim else False
+
+            row_style_parts = []
+            if is_row_hidden:
+                row_style_parts.append("display: none")
+            else:
+                if row_dim and row_dim.height is not None and row_dim.height > 0:
+                    row_h_pt = row_dim.height
+                else:
+                    row_h_pt = default_row_height
+                row_style_parts.append(f"height: {row_h_pt}pt")
 
             if is_pb:
-                tr_classes.append("page-break")
-                tr_styles.append("page-break-before: always !important; break-before: page !important;")
+                row_style_parts.append("page-break-before: always !important")
+                row_style_parts.append("break-before: page !important")
 
-            if r_hidden:
-                tr_styles.append("display: none;")
-            elif r_height is not None and r_height > 0:
-                tr_styles.append(f"height: {r_height}pt;")
+            row_style_attr = f' style="{"; ".join(row_style_parts)};"' if row_style_parts else ""
+            row_class_attr = ' class="page-break"' if is_pb else ""
 
-            class_attr = f' class="{" ".join(tr_classes)}"' if tr_classes else ""
-            style_attr = f' style="{"; ".join(tr_styles)}"' if tr_styles else ""
-
-            html_out.append(f'<tr{class_attr}{style_attr}>')
+            html_out.append(f'<tr{row_class_attr}{row_style_attr}>')
 
             for c in range(1, max_col + 1):
                 if (r, c) in skip_cells:
@@ -422,8 +296,8 @@ class FastHtmlRenderer:
                         span_attrs += f' colspan="{colspan}"'
 
                 style_parts = []
-                if c in hidden_cols:
-                    style_parts.append("display: none;")
+                if c in col_hidden:
+                    style_parts.append("display: none")
 
                 if cell.has_style:
                     if cell.font:
@@ -445,19 +319,14 @@ class FastHtmlRenderer:
 
                     if cell.alignment:
                         if cell.alignment.horizontal:
-                            h_align = cell.alignment.horizontal
-                            if h_align in ("left", "center", "right", "justify"):
-                                style_parts.append(f"text-align: {h_align}")
+                            style_parts.append(f"text-align: {cell.alignment.horizontal}")
                         if cell.alignment.vertical:
-                            v_align = cell.alignment.vertical
-                            if v_align == "center":
-                                style_parts.append("vertical-align: middle")
-                            elif v_align in ("top", "bottom", "baseline"):
-                                style_parts.append(f"vertical-align: {v_align}")
-                            elif v_align in ("justify", "distributed"):
-                                style_parts.append("vertical-align: middle")
-                        if getattr(cell.alignment, "wrap_text", None):
-                            style_parts.append("white-space: pre-wrap; word-break: break-word")
+                            v_align = cls.VERTICAL_ALIGN_MAP.get(cell.alignment.vertical, cell.alignment.vertical)
+                            style_parts.append(f"vertical-align: {v_align}")
+                        if cell.alignment.wrap_text is True:
+                            style_parts.append("white-space: normal; word-break: break-word")
+                        elif cell.alignment.wrap_text is False:
+                            style_parts.append("white-space: nowrap; overflow: hidden; text-overflow: ellipsis")
 
                     bg_color = ExcelColorResolver.resolve_fill(cell.fill, theme_colors)
                     if bg_color:
@@ -488,10 +357,7 @@ class FastHtmlRenderer:
                 formatted_val = FormulaEvaluator.format_cell_value(raw_val, num_format)
 
                 img_html = cell_images.get(coord, "")
-                if img_html:
-                    content_html = img_html
-                else:
-                    content_html = html.escape(formatted_val).replace("\n", "<br/>")
+                content_html = img_html if img_html else html.escape(formatted_val).replace("\n", "<br/>")
 
                 html_out.append(f'<td{span_attrs}{style_attr}>{content_html}</td>')
 

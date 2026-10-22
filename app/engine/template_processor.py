@@ -63,19 +63,16 @@ class TemplateProcessor:
         return self.target_wb
 
     def _copy_sheet_setup(self) -> None:
-        """Copies column widths, print setups, margins, and sheet formats from source to target."""
+        """Copies column widths, print setups, and margins from source to target."""
         for col_letter, col_dim in self.src_sheet.column_dimensions.items():
             self.target_sheet.column_dimensions[col_letter].width = col_dim.width
             self.target_sheet.column_dimensions[col_letter].hidden = col_dim.hidden
 
-        try:
-            if hasattr(self.src_sheet, "sheet_format"):
-                if getattr(self.src_sheet.sheet_format, "defaultRowHeight", None) is not None:
-                    self.target_sheet.sheet_format.defaultRowHeight = self.src_sheet.sheet_format.defaultRowHeight
-                if getattr(self.src_sheet.sheet_format, "defaultColWidth", None) is not None:
-                    self.target_sheet.sheet_format.defaultColWidth = self.src_sheet.sheet_format.defaultColWidth
-        except Exception:
-            pass
+        if hasattr(self.src_sheet, "sheet_format") and self.src_sheet.sheet_format:
+            if self.src_sheet.sheet_format.defaultColWidth is not None:
+                self.target_sheet.sheet_format.defaultColWidth = self.src_sheet.sheet_format.defaultColWidth
+            if self.src_sheet.sheet_format.defaultRowHeight is not None:
+                self.target_sheet.sheet_format.defaultRowHeight = self.src_sheet.sheet_format.defaultRowHeight
 
         if self.src_sheet.print_title_rows:
             self.target_sheet.print_title_rows = self.src_sheet.print_title_rows
@@ -87,15 +84,6 @@ class TemplateProcessor:
                 self.target_sheet.page_setup.orientation = self.src_sheet.page_setup.orientation
             if self.src_sheet.page_setup.paperSize:
                 self.target_sheet.page_setup.paperSize = self.src_sheet.page_setup.paperSize
-        except Exception:
-            pass
-
-        try:
-            if hasattr(self.src_sheet, "page_margins") and self.src_sheet.page_margins:
-                self.target_sheet.page_margins.top = self.src_sheet.page_margins.top
-                self.target_sheet.page_margins.bottom = self.src_sheet.page_margins.bottom
-                self.target_sheet.page_margins.left = self.src_sheet.page_margins.left
-                self.target_sheet.page_margins.right = self.src_sheet.page_margins.right
         except Exception:
             pass
 
@@ -258,8 +246,8 @@ class TemplateProcessor:
         if src_row_dim:
             if src_row_dim.height is not None:
                 self.target_sheet.row_dimensions[target_row_num].height = src_row_dim.height
-            if src_row_dim.hidden:
-                self.target_sheet.row_dimensions[target_row_num].hidden = src_row_dim.hidden
+            if getattr(src_row_dim, "hidden", False):
+                self.target_sheet.row_dimensions[target_row_num].hidden = True
 
         # Snapshot recent mapping for this row
         scoped_mapping = {k: list(v) for k, v in self.recent_row_mapping.items()}
