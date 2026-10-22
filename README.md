@@ -8,6 +8,20 @@
 
 ---
 
+## Documentation Hub
+
+Comprehensive, production-ready documentation is available in the [`docs/`](file:///d:/Code/ApexReports/docs/README.md) directory:
+
+| Guide | Description |
+| :--- | :--- |
+| 📖 **[Template Design Guide](file:///d:/Code/ApexReports/docs/template-design-guide.md)** | Code-first tutorial for creating Master-Detail, Matrix, Barcode, QR code, and auto-expanding summary templates in Excel. |
+| 🛡️ **[Troubleshooting & Pitfalls](file:///d:/Code/ApexReports/docs/troubleshooting-and-pitfalls.md)** | Senior engineer guide: Top 10 mistakes, merged cell traps, formula edge cases, barcode sizing, and logging. |
+| ⚡ **[Oracle APEX Integration Guide](file:///d:/Code/ApexReports/docs/apex-integration-guide.md)** | PL/SQL setup (`apex_reports_pkg`), direct downloads, in-modal HTML previews, and automated email attachments. |
+| 🔌 **[REST API Reference](file:///d:/Code/ApexReports/docs/api-reference.md)** | Full OpenAPI schema, endpoints, binary vs JSON response modes, health checks, and Postman collection. |
+| 🏛️ **[Architecture & Overview](file:///d:/Code/ApexReports/docs/README.md)** | System components, dual-engine rendering pipeline, and technical specs. |
+
+---
+
 ## Key Features
 
 - **Designed in Microsoft Excel**: Create and style templates directly in Microsoft Excel (`.xlsx`) using familiar fonts, borders, alignments, and native Excel formulas (`=SUM()`, `=C5*D5`, `=AVERAGE()`).
