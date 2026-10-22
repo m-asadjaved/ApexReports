@@ -61,6 +61,7 @@ class TemplateProcessor:
 
         self._copy_merged_cells()
         self._update_target_print_area(total_emitted - 1)
+        self._update_target_conditional_formatting(total_emitted - 1)
 
         return self.target_wb
 
@@ -135,6 +136,15 @@ class TemplateProcessor:
             pass
 
         try:
+            if hasattr(self.src_sheet, 'conditional_formatting'):
+                for cf in self.src_sheet.conditional_formatting:
+                    self.target_sheet.conditional_formatting.add(str(cf.sqref), *cf.rules)
+            if hasattr(self.wb, '_differential_styles') and self.wb._differential_styles:
+                self.target_wb._differential_styles = self.wb._differential_styles
+        except Exception:
+            pass
+
+        try:
             if self.src_sheet.views.sheetView:
                 self.target_sheet.views.sheetView[0].showGridLines = self.src_sheet.views.sheetView[0].showGridLines
         except Exception:
@@ -158,6 +168,33 @@ class TemplateProcessor:
                 self.target_sheet.print_area = f"{start_l}{min_r or 1}:{end_l}{eff_max_r}"
         except Exception:
             pass
+
+    def _update_target_conditional_formatting(self, final_row: int) -> None:
+        """Expands conditional formatting ranges to cover newly emitted data rows."""
+        if not hasattr(self.target_sheet, "conditional_formatting") or not self.target_sheet.conditional_formatting:
+            return
+
+        for cf in list(self.target_sheet.conditional_formatting):
+            new_ranges = []
+            modified = False
+            for rng in cf.sqref.ranges:
+                if rng.max_row < final_row:
+                    new_max_r = max(rng.max_row, final_row)
+                    start_l = get_column_letter(rng.min_col)
+                    end_l = get_column_letter(rng.max_col)
+                    new_ranges.append(f"{start_l}{rng.min_row}:{end_l}{new_max_r}")
+                    modified = True
+                else:
+                    new_ranges.append(str(rng))
+
+            if modified:
+                try:
+                    rules = list(cf.rules)
+                    self.target_sheet.conditional_formatting.remove(cf)
+                    for nr in new_ranges:
+                        self.target_sheet.conditional_formatting.add(nr, *rules)
+                except Exception:
+                    pass
 
     def _execute_block(
         self,

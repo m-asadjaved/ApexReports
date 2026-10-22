@@ -9,6 +9,7 @@ from openpyxl.utils.cell import range_boundaries
 from app.core.config import settings
 from app.engine.formula_evaluator import FormulaEvaluator
 from app.renderer.color_resolver import ExcelColorResolver
+from app.engine.conditional_formatting_evaluator import ConditionalFormattingEvaluator
 
 class FastHtmlRenderer:
     """Renders an openpyxl Worksheet into responsive, stylized HTML with calculated formulas in < 25ms."""
@@ -136,6 +137,15 @@ class FastHtmlRenderer:
         return height, hidden
 
     @classmethod
+    def _apply_style_override(cls, style_parts: List[str], property_prefix: str, new_style: str) -> None:
+        """Replaces an existing CSS property in style_parts or appends new_style."""
+        for i, part in enumerate(style_parts):
+            if part.strip().startswith(property_prefix):
+                style_parts[i] = new_style
+                return
+        style_parts.append(new_style)
+
+    @classmethod
     def _get_printable_boundaries(cls, ws: Worksheet) -> Tuple[int, int, int, int]:
         """
         Extracts (min_col, min_row, max_col, max_row) representing the printable area.
@@ -219,6 +229,9 @@ class FastHtmlRenderer:
 
         # 1. Calculate all formulas in-memory (SUM, arithmetic, etc.)
         calc_cache = FormulaEvaluator.evaluate_worksheet(ws)
+
+        # 1b. Evaluate conditional formatting rules across worksheet cells
+        cf_overlays = ConditionalFormattingEvaluator.evaluate_worksheet(ws, calc_cache, theme_colors)
 
         # 2. Extract page breaks (1-based row index that starts a new page)
         page_break_rows: Set[int] = set()
@@ -513,6 +526,25 @@ class FastHtmlRenderer:
                         right_b = cls._format_border_side(cell.border.right, theme_colors)
                         if right_b:
                             style_parts.append(f"border-right: {right_b}")
+
+                cf_overlay = cf_overlays.get((r, c))
+                if cf_overlay:
+                    if cf_overlay.bg_color:
+                        cls._apply_style_override(style_parts, "background-color:", f"background-color: {cf_overlay.bg_color}")
+                    if cf_overlay.font_color:
+                        cls._apply_style_override(style_parts, "color:", f"color: {cf_overlay.font_color}")
+                    if cf_overlay.bold:
+                        cls._apply_style_override(style_parts, "font-weight:", "font-weight: bold")
+                    if cf_overlay.italic:
+                        cls._apply_style_override(style_parts, "font-style:", "font-style: italic")
+                    if cf_overlay.border_top:
+                        cls._apply_style_override(style_parts, "border-top:", f"border-top: {cf_overlay.border_top}")
+                    if cf_overlay.border_bottom:
+                        cls._apply_style_override(style_parts, "border-bottom:", f"border-bottom: {cf_overlay.border_bottom}")
+                    if cf_overlay.border_left:
+                        cls._apply_style_override(style_parts, "border-left:", f"border-left: {cf_overlay.border_left}")
+                    if cf_overlay.border_right:
+                        cls._apply_style_override(style_parts, "border-right:", f"border-right: {cf_overlay.border_right}")
 
                 style_attr = f' style="{"; ".join(style_parts)}"' if style_parts else ""
 
