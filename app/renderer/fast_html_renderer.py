@@ -146,6 +146,26 @@ class FastHtmlRenderer:
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
 
+        # Ensure max_col covers any merged ranges
+        for rng in getattr(ws.merged_cells, "ranges", []):
+            if getattr(rng, "max_col", 0) > max_col:
+                max_col = rng.max_col
+
+        # Ensure max_col covers any columns with explicit custom widths
+        for k, col_dim in ws.column_dimensions.items():
+            if col_dim and getattr(col_dim, "width", None) is not None:
+                if ":" in k:
+                    parts = k.split(":")
+                    try:
+                        max_col = max(max_col, column_index_from_string(parts[1]))
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        max_col = max(max_col, column_index_from_string(k))
+                    except Exception:
+                        pass
+
         # Extract theme color palette from workbook
         theme_colors = ExcelColorResolver.extract_theme_colors(getattr(ws, "parent", None))
 
