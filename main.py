@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,13 +7,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import ReportEngineException
 from app.api.routes import router as api_router
+from app.renderer.chrome_cdp_pool import ChromeCdpPool
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Pre-warm persistent Chrome CDP Pool if browser is present
+    try:
+        if ChromeCdpPool.is_available():
+            ChromeCdpPool.ensure_started()
+    except Exception as e:
+        pass
+    yield
+    # Cleanup on shutdown
+    ChromeCdpPool.stop()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="High-performance reporting engine for Oracle APEX powered by Excel templates and LibreOffice.",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Configure CORS for Oracle APEX integration

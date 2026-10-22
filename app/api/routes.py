@@ -9,11 +9,16 @@ from openpyxl import load_workbook
 
 from app.core.config import settings
 from app.core.exceptions import TemplateNotFoundException, RenderingException, TemplateSyntaxException
-from app.api.schemas import RenderRequest, RenderResponseJson, TemplateInfo, TemplateListResponse
+from app.api.schemas import (
+    RenderRequest, RenderResponseJson, TemplateInfo, TemplateListResponse,
+    ValidateRequest, ValidateResponse, LintDiagnostic
+)
 from app.engine.template_processor import TemplateProcessor
 from app.engine.template_inspector import TemplateInspector
+from app.engine.template_linter import TemplateLinter
 from app.renderer.fast_html_renderer import FastHtmlRenderer
 from app.renderer.libreoffice_pool import LibreOfficeRenderer
+from app.renderer.chrome_cdp_pool import ChromeCdpPool
 from app.renderer.pdf_service import PdfService
 
 router = APIRouter()
@@ -39,6 +44,8 @@ def health_check():
         "status": "online",
         "service": settings.PROJECT_NAME,
         "pdf_backend": PdfService.get_active_backend(),
+        "cdp_pool_running": ChromeCdpPool.is_running(),
+        "cdp_port": ChromeCdpPool.get_port(),
         "libreoffice_available": LibreOfficeRenderer.is_available(),
         "templates_directory": str(settings.TEMPLATES_DIR),
     }
@@ -105,6 +112,20 @@ def inspect_template(template_code: str):
             raise TemplateNotFoundException(template_code)
 
     return TemplateInspector.inspect_file(template_path, template_code)
+
+@router.post("/templates/validate", response_model=ValidateResponse)
+def validate_template(req: ValidateRequest):
+    """Validates an Excel template's grammar, blocks, merged-cell safety, and data contract."""
+    template_path = settings.TEMPLATES_DIR / f"{req.template_code}.xlsx"
+    if not template_path.is_file():
+        alt_path = settings.TEMPLATES_DIR / req.template_code
+        if alt_path.is_file():
+            template_path = alt_path
+        else:
+            raise TemplateNotFoundException(req.template_code)
+
+    lint_result = TemplateLinter.lint_file(template_path, template_code=req.template_code, data=req.data)
+    return ValidateResponse(**lint_result)
 
 @router.get("/studio", response_class=HTMLResponse)
 @router.get("/playground", response_class=HTMLResponse)

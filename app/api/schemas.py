@@ -42,3 +42,22 @@ class TemplateInfo(BaseModel):
 class TemplateListResponse(BaseModel):
     count: int
     templates: List[TemplateInfo]
+
+class LintDiagnostic(BaseModel):
+    code: str
+    message: str
+    cell: Optional[str] = None
+    row: Optional[int] = None
+
+class ValidateRequest(BaseModel):
+    template_code: str = Field(..., description="Template code to validate")
+    data: Optional[Dict[str, Any]] = Field(None, description="Optional JSON payload to validate against template placeholders")
+
+class ValidateResponse(BaseModel):
+    valid: bool
+    template_code: str
+    score: int
+    errors: List[LintDiagnostic]
+    warnings: List[LintDiagnostic]
+    info: List[LintDiagnostic]
+    summary: str

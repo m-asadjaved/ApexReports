@@ -167,6 +167,42 @@ Deeply analyzes an Excel template to discover all variables, repeating loops (`#
 
 Downloads the binary `.xlsx` template file directly.
 
+#### Validate & Lint Template
+`POST /api/v1/templates/validate`
+
+Audits an Excel template and an optional JSON data payload for:
+- Unbalanced blocks (`{{#each}}` without matching `{{/each}}`, `{{#if}}` mismatches).
+- Single-curly brace typos (`{field}` instead of `{{field}}`).
+- Merged-cell boundary collisions (detecting merged ranges that cross repeating frame boundaries).
+- Formula calculation hazards.
+- Data contract coverage (missing required arrays, unresolved variables).
+
+**Request Body:**
+```json
+{
+  "template_code": "INVOICE_REPORT",
+  "data": { ... }
+}
+```
+
+**Response:**
+```json
+{
+  "valid": true,
+  "template_code": "INVOICE_REPORT",
+  "score": 100,
+  "errors": [],
+  "warnings": [],
+  "info": [
+    {
+      "code": "DATA_CONTRACT_SATISFIED",
+      "message": "All 8 template variables are satisfied by the JSON payload."
+    }
+  ],
+  "summary": "Template is healthy (Score: 100/100) with 0 errors and 0 warning(s)."
+}
+```
+
 ---
 
 ### 2.3 Interactive Studio / Playground
@@ -176,6 +212,7 @@ Serves the built-in, browser-based **ApexReports Studio** workspace.
 Features:
 - Live JSON editor with line numbers and syntax validation.
 - Template inspector with variable, block, and formula inspection.
+- Integrated Template Linter & Health Score badge.
 - Split-screen real-time rendering (< 25ms HTML previews or vector PDF).
 - Direct template upload (`.xlsx`) and download.
 - Ready-to-copy Oracle APEX PL/SQL code generator and cURL snippets.
@@ -192,7 +229,13 @@ Reports system status, directory paths, and active PDF rendering backend.
 {
   "status": "online",
   "service": "ApexReports Engine",
-  "pdf_backend": "Headless Browser (C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe)",
+  "pdf_backend": "Persistent Chrome CDP Pool (C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe)",
+  "cdp_pool_running": true,
+  "cdp_port": 9222,
+  "libreoffice_available": false,
+  "templates_directory": "D:\\Code\\ApexReports\\templates"
+}
+```
   "libreoffice_available": false,
   "templates_directory": "D:\\Code\\ApexReports\\templates"
 }

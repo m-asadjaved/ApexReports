@@ -153,6 +153,29 @@
           "path": ["api", "v1", "templates", "INVOICE_REPORT", "download"]
         }
       }
+    },
+    {
+      "name": "9. Validate & Lint Template",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"template_code\": \"INVOICE_REPORT\",\n  \"data\": {\n    \"invoices\": [\n      {\n        \"company\": { \"name\": \"Acme Test\" },\n        \"invoice_no\": \"INV-101\",\n        \"invoice_date\": \"2026-10-22\",\n        \"customer\": { \"name\": \"Oracle Corp\" },\n        \"items\": [\n          { \"item_code\": \"ITEM-1\", \"description\": \"Product\", \"qty\": 1, \"unit_price\": 100 }\n        ]\n      }\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/v1/templates/validate",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "templates", "validate"]
+        }
+      }
     }
   ]
 }
