@@ -18,6 +18,10 @@ class RenderRequest(BaseModel):
         None, 
         description="Optional custom filename for Content-Disposition header"
     )
+    font_family: Optional[str] = Field(
+        None,
+        description="Optional custom font family override for the report (e.g. 'Calibri', 'Arial', 'Times New Roman')"
+    )
     data: Dict[str, Any] = Field(
         default_factory=dict, 
         description="The hierarchical JSON dataset passed from Oracle APEX"

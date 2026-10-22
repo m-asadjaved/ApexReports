@@ -5,6 +5,7 @@ import html
 from typing import Any, Dict, Optional, Set, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import get_column_letter
+from app.core.config import settings
 from app.engine.formula_evaluator import FormulaEvaluator
 
 class FastHtmlRenderer:
@@ -22,6 +23,22 @@ class FastHtmlRenderer:
         "mediumDashed": "2px dashed",
     }
 
+    FONT_FALLBACK_MAP = {
+        "calibri": "'Calibri', 'Carlito', 'Segoe UI', Arial, sans-serif",
+        "aptos": "'Aptos', 'Calibri', 'Segoe UI', Arial, sans-serif",
+        "arial": "'Arial', 'Liberation Sans', 'Helvetica Neue', Helvetica, sans-serif",
+        "times new roman": "'Times New Roman', 'Liberation Serif', Times, serif",
+        "segoe ui": "'Segoe UI', -apple-system, Roboto, Arial, sans-serif",
+        "tahoma": "'Tahoma', 'Geneva', Verdana, sans-serif",
+        "verdana": "'Verdana', 'Geneva', sans-serif",
+        "consolas": "'Consolas', 'Courier New', monospace",
+        "courier new": "'Courier New', Courier, monospace",
+        "georgia": "'Georgia', 'Bitstream Charter', serif",
+        "trebuchet ms": "'Trebuchet MS', 'Lucida Sans', sans-serif",
+        "cambria": "'Cambria', 'Caladea', serif",
+        "comic sans ms": "'Comic Sans MS', cursive",
+    }
+
     @classmethod
     def _format_border_side(cls, side: Any) -> Optional[str]:
         """Maps an openpyxl Side border to CSS style string."""
@@ -36,10 +53,47 @@ class FastHtmlRenderer:
         return f"{css_style} {color}"
 
     @classmethod
-    def render(cls, ws: Worksheet, title: str = "Report Preview", show_gridlines: Optional[bool] = None) -> str:
+    def _get_font_family_css(cls, font_name: Optional[str]) -> str:
+        """Returns CSS font-family string with sensible web and cross-platform fallbacks."""
+        if not font_name:
+            return "'Calibri', 'Segoe UI', Arial, sans-serif"
+        clean = font_name.strip().strip("'\"")
+        fn_lower = clean.lower()
+        if fn_lower in cls.FONT_FALLBACK_MAP:
+            return cls.FONT_FALLBACK_MAP[fn_lower]
+        return f"'{clean}', 'Segoe UI', Arial, sans-serif"
+
+    @classmethod
+    def render(
+        cls, 
+        ws: Worksheet, 
+        title: str = "Report Preview", 
+        show_gridlines: Optional[bool] = None,
+        font_family: Optional[str] = None
+    ) -> str:
         """Converts openpyxl worksheet into HTML with inline CSS styling, page breaks, and calculated values."""
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
+
+        # Determine base document font
+        if font_family:
+            base_font_css = cls._get_font_family_css(font_family)
+            primary_font_name = font_family
+        elif settings.DEFAULT_FONT_FAMILY:
+            base_font_css = cls._get_font_family_css(settings.DEFAULT_FONT_FAMILY)
+            primary_font_name = settings.DEFAULT_FONT_FAMILY
+        else:
+            # Auto-detect primary font used in the Excel template
+            detected_font = "Calibri"
+            for row in ws.iter_rows():
+                for c in row:
+                    if c.font and c.font.name:
+                        detected_font = c.font.name
+                        break
+                if detected_font != "Calibri":
+                    break
+            base_font_css = cls._get_font_family_css(detected_font)
+            primary_font_name = detected_font
 
         # 1. Calculate all formulas in-memory (SUM, arithmetic, etc.)
         calc_cache = FormulaEvaluator.evaluate_worksheet(ws)
@@ -118,7 +172,7 @@ class FastHtmlRenderer:
             '<html><head><meta charset="utf-8">',
             f'<title>{html.escape(title)}</title>',
             '<style>',
-            'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 20px; background-color: #f8fafc; color: #1e293b; }',
+            f'body {{ font-family: {base_font_css}; margin: 20px; background-color: #f8fafc; color: #1e293b; }}',
             '.report-container { max-width: 1100px; margin: 0 auto; background: #ffffff; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; overflow-x: auto; }',
             'table.report-table { border-collapse: collapse; width: 100%; font-size: 13px; line-height: 1.4; }',
             'table.report-table td { padding: 6px 10px; border: none; vertical-align: middle; }',
@@ -165,6 +219,11 @@ class FastHtmlRenderer:
                 style_parts = []
                 if cell.has_style:
                     if cell.font:
+                        if not settings.FORCE_GLOBAL_FONT and cell.font.name:
+                            cell_font_clean = cell.font.name.strip().strip("'\"")
+                            if cell_font_clean.lower() != primary_font_name.lower():
+                                style_parts.append(f"font-family: {cls._get_font_family_css(cell_font_clean)}")
+
                         if cell.font.bold:
                             style_parts.append("font-weight: bold")
                         if cell.font.italic:

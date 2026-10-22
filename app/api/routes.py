@@ -166,7 +166,7 @@ def render_report(req: RenderRequest):
     mime_type = MIME_TYPES.get(req.format, "application/octet-stream")
 
     if req.format == "html":
-        content_str = FastHtmlRenderer.render(populated_wb.active, title=filename)
+        content_str = FastHtmlRenderer.render(populated_wb.active, title=filename, font_family=req.font_family)
         output_bytes = content_str.encode("utf-8")
 
     elif req.format == "xlsx":
@@ -176,7 +176,7 @@ def render_report(req: RenderRequest):
         output_bytes = buf.getvalue()
 
     elif req.format == "pdf":
-        output_bytes = PdfService.convert_to_pdf(populated_wb, filename=filename)
+        output_bytes = PdfService.convert_to_pdf(populated_wb, filename=filename, font_family=req.font_family)
 
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported format '{req.format}'")

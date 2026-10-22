@@ -1,3 +1,4 @@
+from typing import Optional
 from openpyxl import Workbook
 from app.renderer.libreoffice_pool import LibreOfficeRenderer
 from app.renderer.browser_pdf_renderer import BrowserPdfRenderer
@@ -22,19 +23,20 @@ class PdfService:
         return "None"
 
     @classmethod
-    def convert_to_pdf(cls, wb: Workbook, filename: str = "report.pdf") -> bytes:
+    def convert_to_pdf(cls, wb: Workbook, filename: str = "report.pdf", font_family: Optional[str] = None) -> bytes:
         # 1. Prefer LibreOffice container if available
         if LibreOfficeRenderer.is_available():
             return LibreOfficeRenderer.convert_workbook_to_pdf(wb)
 
         # 2. Prefer Persistent Chrome CDP Pool (~120ms latency)
         if ChromeCdpPool.is_available():
-            html_str = FastHtmlRenderer.render(wb.active, title=filename)
+            html_str = FastHtmlRenderer.render(wb.active, title=filename, font_family=font_family)
             return ChromeCdpPool.render_html_to_pdf(html_str)
 
         # 3. Fallback to CLI browser renderer
         if BrowserPdfRenderer.is_available():
-            return BrowserPdfRenderer.convert_worksheet_to_pdf(wb.active, title=filename)
+            html_str = FastHtmlRenderer.render(wb.active, title=filename, font_family=font_family)
+            return BrowserPdfRenderer.convert_html_to_pdf(html_str)
 
         raise RuntimeError(
             "No PDF conversion engine found. Please install LibreOffice or ensure Google Chrome / Microsoft Edge is installed."

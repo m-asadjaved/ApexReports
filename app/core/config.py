@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Optional API Key (default empty = no auth required for internal network)
     API_KEY: Optional[str] = os.getenv("API_KEY", None)
     
+    # Typography configuration
+    DEFAULT_FONT_FAMILY: Optional[str] = os.getenv("DEFAULT_FONT_FAMILY", None)
+    FORCE_GLOBAL_FONT: bool = os.getenv("FORCE_GLOBAL_FONT", "false").lower() == "true"
+    
     # Execution options
     DEBUG: bool = False
 
