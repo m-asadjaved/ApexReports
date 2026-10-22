@@ -1,4 +1,5 @@
 import re
+import colorsys
 from typing import Any, List, Optional
 import xml.etree.ElementTree as ET
 import openpyxl
@@ -70,7 +71,7 @@ class ExcelColorResolver:
 
     @classmethod
     def apply_tint(cls, hex_rgb: str, tint: float) -> str:
-        """Applies Microsoft Office luminance tint to an RGB hex string."""
+        """Applies Microsoft Office HLS luminance tint to an RGB hex string."""
         if not tint or tint == 0.0:
             return hex_rgb
 
@@ -79,25 +80,27 @@ class ExcelColorResolver:
             return hex_rgb
 
         try:
-            r = int(clean_hex[0:2], 16)
-            g = int(clean_hex[2:4], 16)
-            b = int(clean_hex[4:6], 16)
+            r = int(clean_hex[0:2], 16) / 255.0
+            g = int(clean_hex[2:4], 16) / 255.0
+            b = int(clean_hex[4:6], 16) / 255.0
 
-            if tint > 0:
-                # Lighter: interpolate towards 255
-                r = int(r + (255 - r) * tint)
-                g = int(g + (255 - g) * tint)
-                b = int(b + (255 - b) * tint)
-            elif tint < 0:
-                # Darker: interpolate towards 0
-                r = int(r * (1 + tint))
-                g = int(g * (1 + tint))
-                b = int(b * (1 + tint))
+            # Convert to HLS (Hue, Luminance, Saturation)
+            h, l, s = colorsys.rgb_to_hls(r, g, b)
 
-            r = min(255, max(0, r))
-            g = min(255, max(0, g))
-            b = min(255, max(0, b))
-            return f"{r:02X}{g:02X}{b:02X}"
+            # Excel HLS tint algorithm (ECMA-376 Part 1)
+            if tint < 0:
+                l = l * (1.0 + tint)
+            else:
+                l = l * (1.0 - tint) + tint
+
+            l = max(0.0, min(1.0, l))
+            r_new, g_new, b_new = colorsys.hls_to_rgb(h, l, s)
+
+            r_int = max(0, min(255, int(round(r_new * 255))))
+            g_int = max(0, min(255, int(round(g_new * 255))))
+            b_int = max(0, min(255, int(round(b_new * 255))))
+
+            return f"{r_int:02X}{g_int:02X}{b_int:02X}"
         except Exception:
             return hex_rgb
 

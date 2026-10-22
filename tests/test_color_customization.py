@@ -58,9 +58,9 @@ def test_color_resolver_unit_methods():
     assert ExcelColorResolver.resolve_color(Color(rgb="00000000")) == "#000000"
     # Unset pattern fill is transparent (None)
     assert ExcelColorResolver.resolve_fill(PatternFill()) is None
-    # Darker tint
+    # Darker tint (50% luminance of White is 808080)
     tinted_dark = ExcelColorResolver.apply_tint("FFFFFF", -0.5)
-    assert tinted_dark == "7F7F7F"
-    # Lighter tint
+    assert tinted_dark == "808080"
+    # Lighter tint (50% luminance of Black is 808080)
     tinted_light = ExcelColorResolver.apply_tint("000000", 0.5)
-    assert tinted_light == "7F7F7F"
+    assert tinted_light == "808080"
