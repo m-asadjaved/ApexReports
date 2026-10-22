@@ -4,13 +4,14 @@ import base64
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, File, Header, HTTPException, Response, UploadFile, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from openpyxl import load_workbook
 
 from app.core.config import settings
 from app.core.exceptions import TemplateNotFoundException, RenderingException, TemplateSyntaxException
 from app.api.schemas import RenderRequest, RenderResponseJson, TemplateInfo, TemplateListResponse
 from app.engine.template_processor import TemplateProcessor
+from app.engine.template_inspector import TemplateInspector
 from app.renderer.fast_html_renderer import FastHtmlRenderer
 from app.renderer.libreoffice_pool import LibreOfficeRenderer
 from app.renderer.pdf_service import PdfService
@@ -74,6 +75,45 @@ async def upload_template(file: UploadFile = File(...)):
         "filename": file.filename,
         "size_bytes": len(content)
     }
+
+@router.get("/templates/{template_code}/download")
+def download_template(template_code: str):
+    """Downloads the raw .xlsx template file."""
+    template_path = settings.TEMPLATES_DIR / f"{template_code}.xlsx"
+    if not template_path.is_file():
+        alt_path = settings.TEMPLATES_DIR / template_code
+        if alt_path.is_file():
+            template_path = alt_path
+        else:
+            raise TemplateNotFoundException(template_code)
+
+    return FileResponse(
+        path=str(template_path),
+        filename=template_path.name,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@router.get("/templates/{template_code}/inspect")
+def inspect_template(template_code: str):
+    """Inspects an Excel template to discover tags, repeating blocks, formulas, and schema."""
+    template_path = settings.TEMPLATES_DIR / f"{template_code}.xlsx"
+    if not template_path.is_file():
+        alt_path = settings.TEMPLATES_DIR / template_code
+        if alt_path.is_file():
+            template_path = alt_path
+        else:
+            raise TemplateNotFoundException(template_code)
+
+    return TemplateInspector.inspect_file(template_path, template_code)
+
+@router.get("/studio", response_class=HTMLResponse)
+@router.get("/playground", response_class=HTMLResponse)
+def serve_studio():
+    """Serves the interactive in-browser ApexReports Studio."""
+    studio_path = Path(__file__).parent.parent / "static" / "studio.html"
+    if not studio_path.is_file():
+        raise HTTPException(status_code=404, detail="Studio frontend asset not found.")
+    return HTMLResponse(content=studio_path.read_text(encoding="utf-8"))
 
 @router.post("/reports/render")
 def render_report(req: RenderRequest):

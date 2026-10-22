@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApexReports Studio • Live Sandbox</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%22><text y=%2226%22 font-size=%2226%22>⚡</text></svg>">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- CodeMirror for JSON Editing -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    .CodeMirror {
+      height: 100% !important;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      background: #0f172a !important;
+    }
+    .CodeMirror-gutters {
+      background: #0f172a !important;
+      border-right: 1px solid #1e293b !important;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans overflow-hidden select-none">
+
+  <!-- TOP HEADER NAVBAR -->
+  <header class="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0">
+    <!-- Brand -->
+    <div class="flex items-center space-x-3">
+      <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 shadow-md shadow-sky-500/20 font-bold text-white text-base">
+        ⚡
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="font-bold tracking-tight text-white text-base">ApexReports</span>
+          <span class="px-1.5 py-0.5 text-[10px] font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded uppercase tracking-wider">Studio</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template Selector & Upload -->
+    <div class="flex items-center space-x-2">
+      <label for="templateSelect" class="text-xs font-medium text-slate-400">Template:</label>
+      <div class="relative">
+        <select id="templateSelect" class="bg-slate-900 text-slate-100 text-xs font-semibold rounded-md border border-slate-700 pl-3 pr-8 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer">
+          <option value="" disabled selected>Loading templates...</option>
+        </select>
+      </div>
+
+      <!-- Upload Template Button -->
+      <label class="cursor-pointer inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Upload custom .xlsx template">
+        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Upload .xlsx
+        <input type="file" id="templateFileInput" accept=".xlsx" class="hidden" />
+      </label>
+
+      <!-- Download Template Button -->
+      <button id="downloadTemplateBtn" class="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Download raw Excel template">
+        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download .xlsx
+      </button>
+    </div>
+
+    <!-- Output Format Selector & Run Action -->
+    <div class="flex items-center space-x-3">
+      <!-- Format Toggle -->
+      <div class="bg-slate-900 p-0.5 rounded-lg border border-slate-800 flex text-xs font-medium">
+        <button id="fmtHtml" onclick="setFormat('html')" class="px-2.5 py-1 rounded-md text-white bg-sky-600 transition flex items-center space-x-1">
+          <span>⚡ HTML</span>
+        </button>
+        <button id="fmtPdf" onclick="setFormat('pdf')" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition flex items-center space-x-1">
+          <span>🖨️ PDF</span>
+        </button>
+        <button id="fmtXlsx" onclick="setFormat('xlsx')" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition flex items-center space-x-1">
+          <span>📊 XLSX</span>
+        </button>
+      </div>
+
+      <!-- Latency & Status Pill -->
+      <div id="statusBadge" class="hidden items-center px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-950/70 border border-emerald-500/40 text-emerald-400">
+        <span id="statusIcon" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span>
+        <span id="statusText">Ready</span>
+      </div>
+
+      <!-- Run Button -->
+      <button id="runBtn" onclick="runReport()" class="inline-flex items-center px-4 py-1.5 rounded-md text-xs font-semibold text-white bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 shadow-md shadow-sky-500/25 transition active:scale-95 cursor-pointer">
+        <svg id="runIcon" class="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
+        <svg id="runSpinner" class="hidden animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <span>Run</span>
+        <span class="ml-1.5 text-[10px] text-sky-200 opacity-70">Ctrl+↵</span>
+      </button>
+
+      <!-- Docs Link -->
+      <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-slate-200 transition" title="Open Swagger API docs">
+        API
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE: 2-COLUMN SPLIT -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- LEFT WORKSPACE: JSON Payload & Template Inspector -->
+    <div class="w-1/2 flex flex-col border-r border-slate-800 bg-slate-900">
+      <!-- Left Tabs -->
+      <div class="h-10 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between px-3 shrink-0">
+        <div class="flex space-x-1">
+          <button id="tabBtnPayload" onclick="switchLeftTab('payload')" class="px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5">
+            <span>{ } JSON Payload</span>
+          </button>
+          <button id="tabBtnInspector" onclick="switchLeftTab('inspector')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
+            <span>🔍 Template Inspector</span>
+            <span id="varCountBadge" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">0</span>
+          </button>
+          <button id="tabBtnPresets" onclick="switchLeftTab('presets')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
+            <span>⚡ Presets</span>
+          </button>
+        </div>
+
+        <!-- Payload Actions (shown on Payload tab) -->
+        <div id="payloadActions" class="flex items-center space-x-1.5">
+          <button onclick="formatJson()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Format & indent JSON">
+            Format
+          </button>
+          <button onclick="loadTemplateDefaultData()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Reset to template default data">
+            Load Sample
+          </button>
+          <button onclick="clearJson()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-rose-300 transition" title="Clear editor">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content: JSON Payload -->
+      <div id="tabContentPayload" class="flex-1 relative overflow-hidden flex flex-col">
+        <div id="editorContainer" class="flex-1 w-full h-full select-text"></div>
+        <div id="jsonErrorBar" class="hidden bg-rose-950/80 border-t border-rose-500/40 px-3 py-1.5 text-xs text-rose-300 flex items-center space-x-2">
+          <svg class="w-4 h-4 text-rose-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          <span id="jsonErrorText" class="truncate font-mono">Invalid JSON</span>
+        </div>
+      </div>
+
+      <!-- Tab Content: Template Inspector -->
+      <div id="tabContentInspector" class="hidden flex-1 overflow-y-auto p-4 space-y-4 select-text">
+        <!-- Overview Card -->
+        <div class="grid grid-cols-4 gap-2">
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Active Sheet</div>
+            <div id="inspSheetName" class="text-sm font-bold text-white mt-0.5 truncate">-</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Dimensions</div>
+            <div id="inspDimensions" class="text-sm font-bold text-sky-400 mt-0.5">-</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Repeating Loops</div>
+            <div id="inspLoopCount" class="text-sm font-bold text-amber-400 mt-0.5">0</div>
+          </div>
+          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Formulas</div>
+            <div id="inspFormulaCount" class="text-sm font-bold text-emerald-400 mt-0.5">0</div>
+          </div>
+        </div>
+
+        <!-- Repeating Blocks Section -->
+        <div>
+          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
+            <span class="mr-1.5">🔁</span> Repeating Frames (Directives)
+          </h4>
+          <div id="inspBlocksList" class="space-y-1.5 text-xs font-mono">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Discovered Variables Section -->
+        <div>
+          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
+            <span class="mr-1.5">🏷️</span> Template Placeholders & Fields
+          </h4>
+          <div class="overflow-hidden rounded-lg border border-slate-800">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-slate-950 text-slate-400 uppercase text-[10px]">
+                <tr>
+                  <th class="p-2">Variable</th>
+                  <th class="p-2">Cell</th>
+                  <th class="p-2">Scope</th>
+                </tr>
+              </thead>
+              <tbody id="inspVariablesTable" class="divide-y divide-slate-800 bg-slate-900/50">
+                <!-- Injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Formulas Section -->
+        <div>
+          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
+            <span class="mr-1.5">🧮</span> Excel Formulas
+          </h4>
+          <div id="inspFormulasList" class="space-y-1.5 text-xs font-mono">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Media Tags Section -->
+        <div>
+          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
+            <span class="mr-1.5">📱</span> Dynamic Media (Barcodes / QR Codes)
+          </h4>
+          <div id="inspMediaList" class="space-y-1.5 text-xs font-mono">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Presets -->
+      <div id="tabContentPresets" class="hidden flex-1 overflow-y-auto p-4 space-y-3">
+        <div class="text-xs text-slate-400 mb-2">Click any preset below to load sample mock data into the editor:</div>
+
+        <div onclick="loadPreset('invoice_standard')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-white">Invoice • Standard Single</span>
+            <span class="text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">INVOICE_REPORT</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Single invoice with 3 items, summary formulas, and barcode.</p>
+        </div>
+
+        <div onclick="loadPreset('invoice_multipages')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-white">Invoice • Multi-Page Breaks</span>
+            <span class="text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">INVOICE_REPORT</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">2 distinct invoices demonstrating automatic native page breaks.</p>
+        </div>
+
+        <div onclick="loadPreset('dept_employees')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-white">Master-Detail • Departments & Employees</span>
+            <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">DEPT_EMPLOYEES</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">3 departments (Accounting, Research, Sales) with inner salary subtotal resets.</p>
+        </div>
+
+        <div onclick="loadPreset('stress_test')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-white">Stress Test • 50 Repeating Items</span>
+            <span class="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded">High Volume</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Tests formula range expansion and rendering performance across 50 records.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT WORKSPACE: Live Preview & Integration Code -->
+    <div class="w-1/2 flex flex-col bg-slate-950">
+      <!-- Right Tabs -->
+      <div class="h-10 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between px-3 shrink-0">
+        <div class="flex space-x-1">
+          <button id="tabBtnPreview" onclick="switchRightTab('preview')" class="px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5">
+            <span>👁️ Live Preview</span>
+          </button>
+          <button id="tabBtnApex" onclick="switchRightTab('apex')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
+            <span>⚡ Oracle APEX (PL/SQL)</span>
+          </button>
+          <button id="tabBtnCurl" onclick="switchRightTab('curl')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
+            <span>💻 cURL</span>
+          </button>
+          <button id="tabBtnHeaders" onclick="switchRightTab('headers')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
+            <span>📊 Headers</span>
+          </button>
+        </div>
+
+        <!-- Preview Actions -->
+        <div id="previewActions" class="flex items-center space-x-2">
+          <!-- Zoom Controls -->
+          <div class="flex items-center bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-slate-400 space-x-1">
+            <button onclick="setZoom(0.8)" class="hover:text-white px-1">80%</button>
+            <button onclick="setZoom(1.0)" class="hover:text-white px-1 font-bold text-sky-400">100%</button>
+            <button onclick="setZoom(1.2)" class="hover:text-white px-1">120%</button>
+          </div>
+
+          <button onclick="openInNewTab()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Open output in new browser tab">
+            Open Tab ↗
+          </button>
+          <button onclick="downloadCurrentOutput()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-sky-900 hover:bg-sky-800 text-sky-200 transition" title="Download output file directly">
+            Download ⬇
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Content: Live Preview -->
+      <div id="tabContentPreview" class="flex-1 relative flex flex-col bg-slate-900/60 overflow-hidden">
+        <!-- Loading Overlay -->
+        <div id="previewLoading" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center z-10 space-y-3">
+          <div class="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-xs font-medium text-slate-300">Rendering report...</span>
+        </div>
+
+        <!-- Empty State -->
+        <div id="previewEmpty" class="flex-1 flex flex-col items-center justify-center text-slate-500 p-8 space-y-3">
+          <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl">
+            📄
+          </div>
+          <div class="text-center max-w-sm">
+            <p class="text-sm font-semibold text-slate-300">No report rendered yet</p>
+            <p class="text-xs text-slate-500 mt-1">Click the <strong class="text-sky-400">Run</strong> button or press <kbd class="px-1.5 py-0.5 text-[10px] bg-slate-800 border border-slate-700 rounded text-slate-300">Ctrl + Enter</kbd> to generate an instant preview.</p>
+          </div>
+        </div>
+
+        <!-- Rendered Container -->
+        <div id="previewWrapper" class="hidden flex-1 overflow-auto bg-slate-950/50 flex justify-center p-4">
+          <iframe id="previewIframe" class="w-full h-full bg-white shadow-2xl rounded-md transition-transform origin-top" sandbox="allow-same-origin allow-scripts"></iframe>
+        </div>
+      </div>
+
+      <!-- Tab Content: Oracle APEX (PL/SQL) -->
+      <div id="tabContentApex" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-slate-400 text-xs font-sans">Drop-in PL/SQL for Oracle APEX Page Process or Dynamic Action:</span>
+          <button onclick="copyToClipboard('apexCodeText')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition">Copy Code</button>
+        </div>
+        <pre id="apexCodeText" class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-sky-300 overflow-x-auto"></pre>
+      </div>
+
+      <!-- Tab Content: cURL -->
+      <div id="tabContentCurl" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-slate-400 text-xs font-sans">cURL command for terminal or automation pipeline:</span>
+          <button onclick="copyToClipboard('curlCodeText')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition">Copy cURL</button>
+        </div>
+        <pre id="curlCodeText" class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-emerald-300 overflow-x-auto"></pre>
+      </div>
+
+      <!-- Tab Content: Headers -->
+      <div id="tabContentHeaders" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text">
+        <div class="text-slate-400 text-xs font-sans mb-3">Diagnostic response headers returned by the engine:</div>
+        <div class="overflow-hidden rounded-lg border border-slate-800">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900 text-slate-400 uppercase text-[10px]">
+              <tr>
+                <th class="p-2">Header</th>
+                <th class="p-2">Value</th>
+              </tr>
+            </thead>
+            <tbody id="responseHeadersTable" class="divide-y divide-slate-800 bg-slate-950">
+              <tr><td class="p-2 text-slate-500" colspan="2">Run a report to inspect headers.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <script>
+    // State
+    let currentFormat = 'html';
+    let currentTemplate = '';
+    let currentTemplateMetadata = null;
+    let editor = null;
+    let lastRenderResult = null;
+    let currentZoom = 1.0;
+
+    // Initialize CodeMirror Editor
+    function initEditor() {
+      const container = document.getElementById('editorContainer');
+      editor = CodeMirror(container, {
+        value: "{\n  \n}",
+        mode: { name: "javascript", json: true },
+        theme: "dracula",
+        lineNumbers: true,
+        matchBrackets: true,
+        indentUnit: 2,
+        tabSize: 2,
+        lineWrapping: false
+      });
+
+      // Track changes to update code snippets and clear errors
+      editor.on('change', () => {
+        validateJson();
+        updateIntegrationSnippets();
+      });
+    }
+
+    // Set Format (html, pdf, xlsx)
+    function setFormat(fmt) {
+      currentFormat = fmt;
+      const btns = {
+        'html': document.getElementById('fmtHtml'),
+        'pdf': document.getElementById('fmtPdf'),
+        'xlsx': document.getElementById('fmtXlsx')
+      };
+      for (const [key, btn] of Object.entries(btns)) {
+        if (key === fmt) {
+          btn.className = 'px-2.5 py-1 rounded-md text-white bg-sky-600 transition flex items-center space-x-1 font-semibold';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition flex items-center space-x-1';
+        }
+      }
+      updateIntegrationSnippets();
+    }
+
+    // Zoom Preview
+    function setZoom(scale) {
+      currentZoom = scale;
+      const iframe = document.getElementById('previewIframe');
+      iframe.style.transform = `scale(${scale})`;
+      iframe.style.width = `${100 / scale}%`;
+      iframe.style.height = `${100 / scale}%`;
+    }
+
+    // Tab Switching - Left Pane
+    function switchLeftTab(tab) {
+      const tabs = ['payload', 'inspector', 'presets'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const content = document.getElementById(`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === tab) {
+          btn.className = 'px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5';
+          content.classList.remove('hidden');
+          if (t === 'payload' && editor) {
+            setTimeout(() => editor.refresh(), 50);
+          }
+        } else {
+          btn.className = 'px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5';
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    // Tab Switching - Right Pane
+    function switchRightTab(tab) {
+      const tabs = ['preview', 'apex', 'curl', 'headers'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const content = document.getElementById(`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === tab) {
+          btn.className = 'px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5';
+          content.classList.remove('hidden');
+        } else {
+          btn.className = 'px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5';
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    // Validate JSON in Editor
+    function validateJson() {
+      const text = editor.getValue();
+      const errorBar = document.getElementById('jsonErrorBar');
+      const errorText = document.getElementById('jsonErrorText');
+      if (!text.trim()) {
+        errorBar.classList.add('hidden');
+        return true;
+      }
+      try {
+        JSON.parse(text);
+        errorBar.classList.add('hidden');
+        return true;
+      } catch (err) {
+        errorText.innerText = `JSON Syntax Error: ${err.message}`;
+        errorBar.classList.remove('hidden');
+        return false;
+      }
+    }
+
+    // Format / Beautify JSON
+    function formatJson() {
+      try {
+        const obj = JSON.parse(editor.getValue());
+        editor.setValue(JSON.stringify(obj, null, 2));
+      } catch (err) {
+        alert("Cannot format: " + err.message);
+      }
+    }
+
+    // Clear JSON
+    function clearJson() {
+      editor.setValue("{\n  \n}");
+      editor.focus();
+    }
+
+    // Fetch and populate templates
+    async function loadTemplates() {
+      try {
+        const res = await fetch('/api/v1/templates');
+        const data = await res.json();
+        const select = document.getElementById('templateSelect');
+        select.innerHTML = '';
+
+        if (data.templates && data.templates.length > 0) {
+          data.templates.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.template_code;
+            opt.innerText = `${t.template_code} (${(t.size_bytes / 1024).toFixed(1)} KB)`;
+            select.appendChild(opt);
+          });
+          currentTemplate = data.templates[0].template_code;
+          select.value = currentTemplate;
+          await inspectTemplate(currentTemplate);
+        } else {
+          select.innerHTML = '<option value="">No templates found</option>';
+        }
+      } catch (err) {
+        console.error("Failed to load templates:", err);
+      }
+    }
+
+    // Inspect selected template
+    async function inspectTemplate(templateCode, updateEditorData = true) {
+      try {
+        const res = await fetch(`/api/v1/templates/${templateCode}/inspect`);
+        if (!res.ok) throw new Error("Inspection failed");
+        const meta = await res.json();
+        currentTemplateMetadata = meta;
+
+        // Update Inspector tab overview
+        document.getElementById('inspSheetName').innerText = meta.sheet_name || 'Sheet1';
+        document.getElementById('inspDimensions').innerText = `${meta.max_row} rows × ${meta.max_column} cols`;
+        document.getElementById('inspLoopCount').innerText = meta.blocks ? meta.blocks.filter(b => b.type === 'loop').length : 0;
+        document.getElementById('inspFormulaCount').innerText = meta.formulas ? meta.formulas.length : 0;
+        document.getElementById('varCountBadge').innerText = meta.variables ? meta.variables.length : 0;
+
+        // Render Blocks
+        const blocksList = document.getElementById('inspBlocksList');
+        blocksList.innerHTML = '';
+        if (meta.blocks && meta.blocks.length > 0) {
+          meta.blocks.forEach(b => {
+            const el = document.createElement('div');
+            el.className = 'p-2 bg-slate-950 rounded border border-slate-800 flex items-center justify-between';
+            const optText = b.options ? `<span class="text-amber-400">(${b.options})</span>` : '';
+            el.innerHTML = `
+              <div>
+                <span class="text-sky-400 font-bold">{{#each ${b.target}}}</span> ${optText}
+              </div>
+              <span class="text-slate-400 text-[10px]">Row ${b.start_row} → ${b.end_row || '?'}</span>
+            `;
+            blocksList.appendChild(el);
+          });
+        } else {
+          blocksList.innerHTML = '<div class="text-slate-500 italic p-1">No repeating frame directives found.</div>';
+        }
+
+        // Render Variables Table
+        const varTable = document.getElementById('inspVariablesTable');
+        varTable.innerHTML = '';
+        if (meta.variables && meta.variables.length > 0) {
+          meta.variables.forEach(v => {
+            const tr = document.createElement('tr');
+            const scopeTag = v.scope && v.scope.length > 0 
+              ? `<span class="px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800 text-[10px]">${v.scope.join(' > ')}</span>`
+              : `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">root</span>`;
+
+            tr.innerHTML = `
+              <td class="p-2 text-white font-medium">{{${v.name}}}</td>
+              <td class="p-2 text-slate-400">${v.cell}</td>
+              <td class="p-2">${scopeTag}</td>
+            `;
+            varTable.appendChild(tr);
+          });
+        }
+
+        // Render Formulas
+        const formulasList = document.getElementById('inspFormulasList');
+        formulasList.innerHTML = '';
+        if (meta.formulas && meta.formulas.length > 0) {
+          meta.formulas.forEach(f => {
+            const el = document.createElement('div');
+            el.className = 'p-2 bg-slate-950 rounded border border-slate-800 flex items-center justify-between';
+            const badge = f.is_summary 
+              ? '<span class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1 rounded">Expands</span>' 
+              : '<span class="text-[10px] bg-slate-800 text-slate-400 px-1 rounded">Row Formula</span>';
+            el.innerHTML = `
+              <div>
+                <span class="text-slate-300 font-bold">${f.cell}:</span> <span class="text-emerald-400">${f.formula}</span>
+              </div>
+              <div>${badge}</div>
+            `;
+            formulasList.appendChild(el);
+          });
+        } else {
+          formulasList.innerHTML = '<div class="text-slate-500 italic p-1">No formulas detected in this template.</div>';
+        }
+
+        // Render Media Tags
+        const mediaList = document.getElementById('inspMediaList');
+        mediaList.innerHTML = '';
+        if (meta.media_tags && meta.media_tags.length > 0) {
+          meta.media_tags.forEach(m => {
+            const el = document.createElement('div');
+            el.className = 'p-2 bg-slate-950 rounded border border-slate-800 flex items-center justify-between';
+            el.innerHTML = `
+              <div>
+                <span class="text-purple-400 font-bold">@${m.type}</span>
+                <span class="text-slate-300 ml-1 truncate">${m.params}</span>
+              </div>
+              <span class="text-slate-400 text-[10px]">Cell ${m.cell}</span>
+            `;
+            mediaList.appendChild(el);
+          });
+        } else {
+          mediaList.innerHTML = '<div class="text-slate-500 italic p-1">No dynamic barcodes or QR codes.</div>';
+        }
+
+        // Update Editor Data if requested
+        if (updateEditorData && meta.sample_data) {
+          editor.setValue(JSON.stringify(meta.sample_data, null, 2));
+        }
+
+        updateIntegrationSnippets();
+      } catch (err) {
+        console.error("Inspector error:", err);
+      }
+    }
+
+    // Load default sample data for current template
+    function loadTemplateDefaultData() {
+      if (currentTemplateMetadata && currentTemplateMetadata.sample_data) {
+        editor.setValue(JSON.stringify(currentTemplateMetadata.sample_data, null, 2));
+      }
+    }
+
+    // Load Presets
+    function loadPreset(presetKey) {
+      if (presetKey === 'invoice_standard') {
+        document.getElementById('templateSelect').value = 'INVOICE_REPORT';
+        currentTemplate = 'INVOICE_REPORT';
+        inspectTemplate('INVOICE_REPORT', false);
+        editor.setValue(JSON.stringify({
+          "invoices": [
+            {
+              "company": { "name": "Apex Enterprise Solutions Inc." },
+              "invoice_no": "INV-2026-9001",
+              "invoice_date": "2026-10-22",
+              "customer": { "name": "Oracle Financial Services Software" },
+              "items": [
+                { "item_code": "LIC-ENT", "description": "ApexReports Unlimited Core License", "qty": 1, "unit_price": 4500.00 },
+                { "item_code": "SRV-CONS", "description": "Production Architecture Review & Setup", "qty": 16, "unit_price": 185.00 },
+                { "item_code": "SUP-247", "description": "Priority 24/7 Enterprise SLA Support", "qty": 1, "unit_price": 1200.00 }
+              ]
+            }
+          ]
+        }, null, 2));
+      } else if (presetKey === 'invoice_multipages') {
+        document.getElementById('templateSelect').value = 'INVOICE_REPORT';
+        currentTemplate = 'INVOICE_REPORT';
+        inspectTemplate('INVOICE_REPORT', false);
+        editor.setValue(JSON.stringify({
+          "invoices": [
+            {
+              "company": { "name": "Apex Global Operations Inc." },
+              "invoice_no": "INV-2026-A1",
+              "invoice_date": "2026-10-22",
+              "customer": { "name": "First National Bank" },
+              "items": [
+                { "item_code": "SRV-SEC", "description": "Security Penetration Audit", "qty": 1, "unit_price": 3500.00 },
+                { "item_code": "LIC-PRO", "description": "Reporting Core License", "qty": 5, "unit_price": 500.00 }
+              ]
+            },
+            {
+              "company": { "name": "Apex Global Operations Inc." },
+              "invoice_no": "INV-2026-B2",
+              "invoice_date": "2026-10-23",
+              "customer": { "name": "Pacific Freight Logistics" },
+              "items": [
+                { "item_code": "LOG-01", "description": "Dispatch Optimization Module", "qty": 2, "unit_price": 1400.00 },
+                { "item_code": "TRN-01", "description": "Staff Training Workshop", "qty": 4, "unit_price": 350.00 }
+              ]
+            }
+          ]
+        }, null, 2));
+      } else if (presetKey === 'dept_employees') {
+        document.getElementById('templateSelect').value = 'DEPT_EMPLOYEES';
+        currentTemplate = 'DEPT_EMPLOYEES';
+        inspectTemplate('DEPT_EMPLOYEES', false);
+        editor.setValue(JSON.stringify({
+          "departments": [
+            {
+              "dept_name": "ACCOUNTING",
+              "loc": "NEW YORK",
+              "employees": [
+                { "empno": 7782, "ename": "CLARK", "job": "MANAGER", "sal": 2450.00, "manager": "KING" },
+                { "empno": 7839, "ename": "KING", "job": "PRESIDENT", "sal": 5000.00, "manager": null },
+                { "empno": 7934, "ename": "MILLER", "job": "CLERK", "sal": 1300.00, "manager": "CLARK" }
+              ]
+            },
+            {
+              "dept_name": "RESEARCH",
+              "loc": "DALLAS",
+              "employees": [
+                { "empno": 7369, "ename": "SMITH", "job": "CLERK", "sal": 800.00, "manager": "FORD" },
+                { "empno": 7566, "ename": "JONES", "job": "MANAGER", "sal": 2975.00, "manager": "KING" },
+                { "empno": 7788, "ename": "SCOTT", "job": "ANALYST", "sal": 3000.00, "manager": "JONES" }
+              ]
+            }
+          ]
+        }, null, 2));
+      } else if (presetKey === 'stress_test') {
+        document.getElementById('templateSelect').value = 'INVOICE_REPORT';
+        currentTemplate = 'INVOICE_REPORT';
+        inspectTemplate('INVOICE_REPORT', false);
+        const items = [];
+        for (let i = 1; i <= 50; i++) {
+          items.push({
+            item_code: `SKU-${1000 + i}`,
+            description: `Automated Volume Item #${i} with extended description`,
+            qty: (i % 5) + 1,
+            unit_price: Number((25.50 * (i % 7 + 1)).toFixed(2))
+          });
+        }
+        editor.setValue(JSON.stringify({
+          "invoices": [
+            {
+              "company": { "name": "Apex Bulk Stress Corp." },
+              "invoice_no": "INV-STRESS-50",
+              "invoice_date": "2026-10-22",
+              "customer": { "name": "Enterprise Scale Testing" },
+              "items": items
+            }
+          ]
+        }, null, 2));
+      }
+      switchLeftTab('payload');
+    }
+
+    // Run Report Action
+    async function runReport() {
+      if (!validateJson()) {
+        alert("Please correct the JSON syntax error before running.");
+        return;
+      }
+
+      let payloadData;
+      try {
+        payloadData = JSON.parse(editor.getValue());
+      } catch (err) {
+        alert("Invalid JSON: " + err.message);
+        return;
+      }
+
+      // UI Loading state
+      const runSpinner = document.getElementById('runSpinner');
+      const runIcon = document.getElementById('runIcon');
+      const previewLoading = document.getElementById('previewLoading');
+      const previewEmpty = document.getElementById('previewEmpty');
+      const previewWrapper = document.getElementById('previewWrapper');
+      const iframe = document.getElementById('previewIframe');
+      const statusBadge = document.getElementById('statusBadge');
+      const statusText = document.getElementById('statusText');
+
+      runSpinner.classList.remove('hidden');
+      runIcon.classList.add('hidden');
+      previewLoading.classList.remove('hidden');
+
+      const startTime = performance.now();
+
+      try {
+        const renderPayload = {
+          template_code: currentTemplate,
+          format: currentFormat,
+          response_mode: "binary",
+          filename: `${currentTemplate}.${currentFormat}`,
+          data: payloadData
+        };
+
+        const response = await fetch('/api/v1/reports/render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(renderPayload)
+        });
+
+        const totalLatency = (performance.now() - startTime).toFixed(1);
+        const serverExecTime = response.headers.get('X-Execution-Time-Ms') || totalLatency;
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({ message: response.statusText }));
+          throw new Error(errData.message || `HTTP ${response.status}`);
+        }
+
+        // Handle successful response
+        const blob = await response.blob();
+        lastRenderResult = {
+          blob: blob,
+          format: currentFormat,
+          filename: `${currentTemplate}.${currentFormat}`,
+          headers: Array.from(response.headers.entries())
+        };
+
+        // Update Headers Tab
+        const headersTable = document.getElementById('responseHeadersTable');
+        headersTable.innerHTML = '';
+        for (const [k, v] of response.headers.entries()) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td class="p-2 text-slate-400">${k}</td><td class="p-2 text-white font-mono">${v}</td>`;
+          headersTable.appendChild(tr);
+        }
+
+        // Update Status Badge
+        statusBadge.classList.remove('hidden');
+        statusBadge.classList.remove('border-rose-500/40', 'bg-rose-950/70', 'text-rose-400');
+        statusBadge.classList.add('border-emerald-500/40', 'bg-emerald-950/70', 'text-emerald-400');
+        statusText.innerText = `⚡ ${serverExecTime}ms (${(blob.size / 1024).toFixed(1)} KB)`;
+
+        // Handle Preview based on format
+        previewEmpty.classList.add('hidden');
+        previewWrapper.classList.remove('hidden');
+
+        if (currentFormat === 'html') {
+          const htmlText = await blob.text();
+          iframe.srcdoc = htmlText;
+        } else if (currentFormat === 'pdf') {
+          const url = URL.createObjectURL(blob);
+          iframe.removeAttribute('srcdoc');
+          iframe.src = url;
+        } else if (currentFormat === 'xlsx') {
+          // Trigger immediate download for XLSX
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${currentTemplate}.xlsx`;
+          a.click();
+          URL.revokeObjectURL(url);
+          // Show notice inside preview
+          iframe.srcdoc = `
+            <div style="font-family: system-ui; display: flex; height: 90vh; align-items: center; justify-content: center; text-align: center;">
+              <div>
+                <h2>📊 Excel File Generated!</h2>
+                <p>The spreadsheet <strong>${currentTemplate}.xlsx</strong> has been downloaded to your machine.</p>
+              </div>
+            </div>
+          `;
+        }
+
+        // Switch to preview tab if not already on it
+        switchRightTab('preview');
+
+      } catch (err) {
+        console.error("Render failed:", err);
+        statusBadge.classList.remove('hidden');
+        statusBadge.classList.remove('border-emerald-500/40', 'bg-emerald-950/70', 'text-emerald-400');
+        statusBadge.classList.add('border-rose-500/40', 'bg-rose-950/70', 'text-rose-400');
+        statusText.innerText = `Error: ${err.message}`;
+        alert(`Render Error: ${err.message}`);
+      } finally {
+        runSpinner.classList.add('hidden');
+        runIcon.classList.remove('hidden');
+        previewLoading.classList.add('hidden');
+      }
+    }
+
+    // Open Output in New Tab
+    function openInNewTab() {
+      if (!lastRenderResult || !lastRenderResult.blob) {
+        alert("Please run the report first.");
+        return;
+      }
+      const url = URL.createObjectURL(lastRenderResult.blob);
+      window.open(url, '_blank');
+    }
+
+    // Download Current Output
+    function downloadCurrentOutput() {
+      if (!lastRenderResult || !lastRenderResult.blob) {
+        alert("Please run the report first.");
+        return;
+      }
+      const url = URL.createObjectURL(lastRenderResult.blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = lastRenderResult.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Update cURL and PL/SQL integration snippets
+    function updateIntegrationSnippets() {
+      const dataStr = editor ? editor.getValue() : "{}";
+      const tmpl = currentTemplate || "INVOICE_REPORT";
+
+      // PL/SQL Snippet
+      const plsql = `-- =========================================================
+-- Oracle APEX: Call ApexReports Engine from PL/SQL
+-- =========================================================
+DECLARE
+    l_json_data CLOB := q'~${dataStr}~';
+BEGIN
+    ${currentFormat === 'html' ? 
+`    -- Option A: Instant In-Modal HTML Preview (< 25ms)
+    HTP.p(apex_reports_pkg.get_html_preview(
+        p_template_code => '${tmpl}',
+        p_json_data     => l_json_data
+    ));` : 
+`    -- Option B: Direct PDF Download to Browser
+    apex_reports_pkg.download_pdf(
+        p_template_code => '${tmpl}',
+        p_json_data     => l_json_data,
+        p_filename      => '${tmpl}.pdf'
+    );`}
+END;`;
+      document.getElementById('apexCodeText').innerText = plsql;
+
+      // cURL Snippet
+      const curl = `curl -X POST "http://localhost:8000/api/v1/reports/render" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "template_code": "${tmpl}",
+    "format": "${currentFormat}",
+    "response_mode": "binary",
+    "filename": "${tmpl}.${currentFormat}",
+    "data": ${dataStr.trim() || "{}"}
+  }' \\
+  --output "${tmpl}.${currentFormat}"`;
+      document.getElementById('curlCodeText').innerText = curl;
+    }
+
+    // Copy to Clipboard
+    function copyToClipboard(elementId) {
+      const text = document.getElementById(elementId).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert("Copied to clipboard!");
+      });
+    }
+
+    // Setup Event Listeners
+    window.addEventListener('DOMContentLoaded', () => {
+      initEditor();
+      loadTemplates();
+
+      // Keyboard Shortcut: Ctrl+Enter / Cmd+Enter to Run
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          runReport();
+        }
+      });
+
+      // Template dropdown change
+      document.getElementById('templateSelect').addEventListener('change', (e) => {
+        currentTemplate = e.target.value;
+        inspectTemplate(currentTemplate, true);
+      });
+
+      // Upload template input change
+      document.getElementById('templateFileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+          const res = await fetch('/api/v1/templates/upload', {
+            method: 'POST',
+            body: formData
+          });
+          if (!res.ok) throw new Error("Upload failed");
+          const result = await res.json();
+          alert(`Template '${result.template_code}' uploaded successfully!`);
+          await loadTemplates();
+          document.getElementById('templateSelect').value = result.template_code;
+          currentTemplate = result.template_code;
+          await inspectTemplate(currentTemplate, true);
+        } catch (err) {
+          alert("Failed to upload template: " + err.message);
+        }
+      });
+
+      // Download template button
+      document.getElementById('downloadTemplateBtn').addEventListener('click', () => {
+        if (!currentTemplate) return;
+        window.location.href = `/api/v1/templates/${currentTemplate}/download`;
+      });
+    });
+  </script>
+</body>
+</html>

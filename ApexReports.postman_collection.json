@@ -125,6 +125,34 @@
           "path": ["api", "v1", "reports", "render"]
         }
       }
+    },
+    {
+      "name": "7. Inspect Template Metadata & Schema",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/v1/templates/INVOICE_REPORT/inspect",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "templates", "INVOICE_REPORT", "inspect"]
+        }
+      }
+    },
+    {
+      "name": "8. Download Raw Template (.xlsx)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/v1/templates/INVOICE_REPORT/download",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "templates", "INVOICE_REPORT", "download"]
+        }
+      }
     }
   ]
 }

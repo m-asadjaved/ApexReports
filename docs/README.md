@@ -22,6 +22,7 @@ flowchart TD
 
 | Guide | Description | Key Focus Areas |
 | :--- | :--- | :--- |
+| ⚡ [**ApexReports Studio**](file:///d:/Code/ApexReports/docs/api-reference.md#23-interactive-studio--playground) | Built-in browser sandbox (`/studio`). | Live JSON editor, template tag inspector, split-screen HTML/PDF previews (<25ms), and instant APEX PL/SQL code generator. |
 | 📘 [**Template Design Guide**](file:///d:/Code/ApexReports/docs/template-design-guide.md) | Complete manual on authoring Excel templates (`.xlsx`). | Tag reference, repeating rows, matrix cross-tabs, dynamic formulas (`=SUM`, `=COUNTA`), dynamic barcodes, QR codes, and page breaks. |
 | 🛡️ [**Troubleshooting & Pitfalls**](file:///d:/Code/ApexReports/docs/troubleshooting-and-pitfalls.md) | Senior Engineer root-cause analysis of common mistakes. | Merged cell overlapping, payload nesting mismatches, string-number concatenation, formula evaluation gaps, and Do's & Don'ts. |
 | ⚡ [**REST API Reference**](file:///d:/Code/ApexReports/docs/api-reference.md) | Full technical specification of the FastAPI service. | Request/response schemas, binary streaming vs Base64 JSON envelopes, health diagnostics, and LibreOffice/Chrome runtime. |

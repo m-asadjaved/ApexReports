@@ -40,6 +40,21 @@ Comprehensive, production-ready documentation is available in the [`docs/`](file
 
 ---
 
+## 🎨 Interactive Live Studio (`/studio`)
+
+ApexReports includes a built-in, browser-based **Studio / Playground** accessible immediately once the service starts at:
+
+👉 **`http://localhost:8000/studio`** (or `/playground`)
+
+### Studio Capabilities:
+- **Real-Time Split Preview:** Instant HTML previews (< 25ms) or vector PDF rendering directly in your browser.
+- **Interactive JSON Editor:** Line numbers, formatting, validation, and sample presets for standard reports.
+- **Template Inspector:** Analyzes templates to reveal detected placeholders, loops, Excel formulas, barcodes, and QR codes.
+- **Direct Template Management:** Upload new `.xlsx` files and immediately download or preview them without service restarts.
+- **Code Generator:** Generates copy-paste Oracle APEX PL/SQL processes (`apex_reports_pkg.download_pdf(...)`) and `curl` terminal commands automatically matching your current payload.
+
+---
+
 ## Quickstart
 
 ### 1. Run with Docker (Recommended for PDF Generation)

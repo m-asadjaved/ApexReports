@@ -130,9 +130,59 @@ Uploads or hot-reloads an `.xlsx` template file without restarting the service.
 }
 ```
 
+#### Inspect Template Metadata & Schema
+`GET /api/v1/templates/{template_code}/inspect`
+
+Deeply analyzes an Excel template to discover all variables, repeating loops (`#each`), formulas, barcodes, QR codes, merged cells, and auto-generated sample JSON payloads.
+
+**Response:**
+```json
+{
+  "template_code": "INVOICE_REPORT",
+  "filename": "INVOICE_REPORT.xlsx",
+  "sheet_name": "Invoice",
+  "max_row": 15,
+  "max_column": 5,
+  "blocks": [
+    { "type": "loop", "target": "invoices", "options": "page_break=true", "start_row": 1, "end_row": 12 },
+    { "type": "loop", "target": "items", "options": "", "start_row": 7, "end_row": 9 }
+  ],
+  "variables": [
+    { "name": "company.name", "cell": "A3", "scope": ["invoices"] },
+    { "name": "invoice_no", "cell": "D3", "scope": ["invoices"] }
+  ],
+  "formulas": [
+    { "cell": "E8", "formula": "=C8*D8", "is_summary": false },
+    { "cell": "E10", "formula": "=SUM(E8:E8)", "is_summary": true }
+  ],
+  "media_tags": [
+    { "cell": "D2", "type": "barcode", "params": "'...' format=code128 width=180 height=50" }
+  ],
+  "sample_data": { ... }
+}
+```
+
+#### Download Raw Template
+`GET /api/v1/templates/{template_code}/download`
+
+Downloads the binary `.xlsx` template file directly.
+
 ---
 
-### 2.3 System Diagnostics
+### 2.3 Interactive Studio / Playground
+`GET /studio` (or `/playground`)
+
+Serves the built-in, browser-based **ApexReports Studio** workspace.
+Features:
+- Live JSON editor with line numbers and syntax validation.
+- Template inspector with variable, block, and formula inspection.
+- Split-screen real-time rendering (< 25ms HTML previews or vector PDF).
+- Direct template upload (`.xlsx`) and download.
+- Ready-to-copy Oracle APEX PL/SQL code generator and cURL snippets.
+
+---
+
+### 2.4 System Diagnostics
 `GET /api/v1/health`
 
 Reports system status, directory paths, and active PDF rendering backend.

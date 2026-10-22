@@ -1,5 +1,6 @@
+from pathlib import Path
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -38,10 +39,17 @@ async def report_engine_exception_handler(request: Request, exc: ReportEngineExc
 # Register routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+@app.get("/studio", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/playground", response_class=HTMLResponse, include_in_schema=False)
+def serve_root_studio():
+    studio_path = Path(__file__).parent / "app" / "static" / "studio.html"
+    return HTMLResponse(content=studio_path.read_text(encoding="utf-8"))
+
 @app.get("/")
 def root():
     return {
         "service": settings.PROJECT_NAME,
+        "studio": "/studio",
         "docs": "/docs",
         "api_v1": settings.API_V1_STR,
         "health": f"{settings.API_V1_STR}/health"
