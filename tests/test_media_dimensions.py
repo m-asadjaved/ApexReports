@@ -52,3 +52,14 @@ def test_qr_string_concatenation_with_number_and_string():
     # 3. Test embedded token syntax
     res_token = ev.evaluate_expression("https://verify.apex.corp/inv/{{invoice_no}}", {"invoice_no": "ABC"})
     assert res_token == "https://verify.apex.corp/inv/ABC"
+
+def test_barcode_with_text():
+    wb = Workbook()
+    ws = wb.active
+    ws["A1"] = "{{@barcode 'INV-9901' format=code128 text=true width=180 height=50}}"
+
+    processor = TemplateProcessor(wb)
+    out_wb = processor.process({})
+    assert len(out_wb.active._images) == 1
+    assert out_wb.active._images[0].width == 180
+    assert out_wb.active._images[0].height == 50

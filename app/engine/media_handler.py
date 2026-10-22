@@ -45,7 +45,8 @@ class MediaHandler:
         data: str, 
         code_format: str = "code128", 
         width: Optional[int] = None, 
-        height: Optional[int] = None
+        height: Optional[int] = None,
+        write_text: bool = False
     ) -> io.BytesIO:
         """Generates a 1D barcode (Code128, EAN13, Code39) resized to requested dimensions."""
         code_format_clean = code_format.lower().replace("-", "")
@@ -58,10 +59,10 @@ class MediaHandler:
         temp_buf = io.BytesIO()
         try:
             bc = barcode_cls(str(data), writer=writer)
-            bc.write(temp_buf, options={"write_text": False, "quiet_zone": 1.0})
+            bc.write(temp_buf, options={"write_text": write_text, "quiet_zone": 1.0})
         except Exception:
             bc = barcode.get_barcode_class("code128")(str(data), writer=writer)
-            bc.write(temp_buf, options={"write_text": False, "quiet_zone": 1.0})
+            bc.write(temp_buf, options={"write_text": write_text, "quiet_zone": 1.0})
 
         temp_buf.seek(0)
 

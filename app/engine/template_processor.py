@@ -301,11 +301,13 @@ class TemplateProcessor:
             if data_val:
                 req_w = attrs.get("width", 150)
                 req_h = attrs.get("height", 40)
+                show_text = attrs.get("text", False)
                 buf = MediaHandler.generate_barcode(
                     str(data_val), 
                     code_format=attrs.get("format", "code128"),
                     width=req_w,
-                    height=req_h
+                    height=req_h,
+                    write_text=show_text
                 )
                 MediaHandler.embed_image_in_cell(
                     self.target_sheet,
