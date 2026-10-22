@@ -2,7 +2,7 @@ import io
 import re
 import base64
 import html
-from typing import Any, Dict, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import get_column_letter
 from app.engine.formula_evaluator import FormulaEvaluator
@@ -10,8 +10,33 @@ from app.engine.formula_evaluator import FormulaEvaluator
 class FastHtmlRenderer:
     """Renders an openpyxl Worksheet into responsive, stylized HTML with calculated formulas in < 25ms."""
 
+    BORDER_STYLE_MAP = {
+        "thin": "1px solid",
+        "medium": "2px solid",
+        "thick": "3px solid",
+        "double": "3px double",
+        "dashed": "1px dashed",
+        "dotted": "1px dotted",
+        "hair": "1px dotted",
+        "dashDot": "1px dashed",
+        "mediumDashed": "2px dashed",
+    }
+
     @classmethod
-    def render(cls, ws: Worksheet, title: str = "Report Preview") -> str:
+    def _format_border_side(cls, side: Any) -> Optional[str]:
+        """Maps an openpyxl Side border to CSS style string."""
+        if not side or not getattr(side, "style", None) or side.style == "none":
+            return None
+        css_style = cls.BORDER_STYLE_MAP.get(side.style, "1px solid")
+        color = "#cbd5e1"
+        if getattr(side, "color", None) and getattr(side.color, "rgb", None):
+            raw_rgb = getattr(side.color, "rgb")
+            if isinstance(raw_rgb, str) and re.match(r"^[0-9a-fA-F]{6,8}$", raw_rgb):
+                color = f"#{raw_rgb[2:] if len(raw_rgb) == 8 else raw_rgb}"
+        return f"{css_style} {color}"
+
+    @classmethod
+    def render(cls, ws: Worksheet, title: str = "Report Preview", show_gridlines: Optional[bool] = None) -> str:
         """Converts openpyxl worksheet into HTML with inline CSS styling, page breaks, and calculated values."""
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
@@ -81,6 +106,13 @@ class FastHtmlRenderer:
             except Exception:
                 pass
 
+        if show_gridlines is None:
+            display_gridlines = getattr(ws.print_options, "gridLines", False) is True
+        else:
+            display_gridlines = bool(show_gridlines)
+
+        table_class = "report-table show-gridlines" if display_gridlines else "report-table"
+
         html_out = [
             '<!DOCTYPE html>',
             '<html><head><meta charset="utf-8">',
@@ -89,7 +121,8 @@ class FastHtmlRenderer:
             'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 20px; background-color: #f8fafc; color: #1e293b; }',
             '.report-container { max-width: 1100px; margin: 0 auto; background: #ffffff; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border-radius: 8px; overflow-x: auto; }',
             'table.report-table { border-collapse: collapse; width: 100%; font-size: 13px; line-height: 1.4; }',
-            'table.report-table td { padding: 6px 10px; border: 1px solid #e2e8f0; vertical-align: middle; }',
+            'table.report-table td { padding: 6px 10px; border: none; vertical-align: middle; }',
+            'table.report-table.show-gridlines td { border: 1px solid #e2e8f0; }',
             '@media print {',
             '  body { margin: 0; background: none; }',
             '  .report-container { box-shadow: none; padding: 0; max-width: 100%; border-radius: 0; }',
@@ -102,7 +135,7 @@ class FastHtmlRenderer:
             '</style>',
             '</head><body>',
             '<div class="report-container">',
-            '<table class="report-table">'
+            f'<table class="{table_class}">'
         ]
 
         for r in range(1, max_row + 1):
@@ -155,6 +188,20 @@ class FastHtmlRenderer:
                         if isinstance(raw_fill, str) and re.match(r"^[0-9a-fA-F]{6,8}$", raw_fill) and raw_fill != "00000000":
                             s_rgb = raw_fill[2:] if len(raw_fill) == 8 else raw_fill
                             style_parts.append(f"background-color: #{s_rgb}")
+
+                    if cell.border:
+                        top_b = cls._format_border_side(cell.border.top)
+                        if top_b:
+                            style_parts.append(f"border-top: {top_b}")
+                        bot_b = cls._format_border_side(cell.border.bottom)
+                        if bot_b:
+                            style_parts.append(f"border-bottom: {bot_b}")
+                        left_b = cls._format_border_side(cell.border.left)
+                        if left_b:
+                            style_parts.append(f"border-left: {left_b}")
+                        right_b = cls._format_border_side(cell.border.right)
+                        if right_b:
+                            style_parts.append(f"border-right: {right_b}")
 
                 style_attr = f' style="{"; ".join(style_parts)}"' if style_parts else ""
 
