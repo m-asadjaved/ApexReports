@@ -3,9 +3,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import jinja2
 
 TAG_REGEX = re.compile(r"\{\{([^{}]+)\}\}")
+TRAILING_ATTR_REGEX = re.compile(r'\s+([a-zA-Z_]\w*)=(?:"([^"]*)"|\'([^\']*)\'|([^\s"\']+))\s*$')
 
 class ExpressionEvaluator:
-    """Safe expression evaluator using Jinja2."""
+    """Safe expression evaluator using Jinja2 with automatic type coercion for string concatenation."""
     def __init__(self):
         self.env = jinja2.Environment(
             variable_start_string="{{",
@@ -15,16 +16,24 @@ class ExpressionEvaluator:
         )
 
     def evaluate_expression(self, expr: str, context: Dict[str, Any]) -> Any:
-        """Evaluates an expression like 'item.price * item.qty' or 'user.name' against context."""
+        """Evaluates an expression like 'item.price * item.qty', 'user.name', or \"'https://...' + id\" against context."""
         expr = expr.strip()
         if not expr:
             return ""
 
-        # Direct key lookup optimization
+        # 1. Handle embedded interpolation: e.g. "https://verify.org/id={{invoice_no}}"
+        if "{{" in expr and "}}" in expr:
+            def sub_token(m: re.Match) -> str:
+                tok = m.group(1).strip()
+                val = self.evaluate_expression(tok, context)
+                return str(val) if val is not None else ""
+            return TAG_REGEX.sub(sub_token, expr)
+
+        # 2. Direct key lookup optimization
         if expr in context:
             return context[expr]
 
-        # Handle simple dotted access like a.b.c
+        # 3. Handle simple dotted access like a.b.c
         if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$", expr):
             curr = context
             parts = expr.split(".")
@@ -37,9 +46,16 @@ class ExpressionEvaluator:
                     return None
             return curr
 
-        # Fallback to Jinja2 template rendering for complex expressions
+        # 4. If expression involves string concatenation (+ or & near quotes), convert to Jinja2's ~ operator
+        # This prevents TypeError when concatenating a string with an integer/float like "'url/' + 1001"
+        jinja_expr = expr
+        if ("'" in expr or '"' in expr) and ("+" in expr or "&" in expr):
+            jinja_expr = re.sub(r"(['\"][^'\"]*['\"])\s*[\+&]", r"\1 ~", jinja_expr)
+            jinja_expr = re.sub(r"[\+&]\s*(['\"][^'\"]*['\"])", r"~ \1", jinja_expr)
+
+        # 5. Evaluate via Jinja2 template engine
         try:
-            template = self.env.from_string(f"{{{{ {expr} }}}}")
+            template = self.env.from_string(f"{{{{ {jinja_expr} }}}}")
             result = template.render(context)
             if result == "True":
                 return True
@@ -83,8 +99,6 @@ def parse_tag_attributes(attr_string: str) -> Dict[str, Any]:
             except ValueError:
                 attrs[key] = val
     return attrs
-
-TRAILING_ATTR_REGEX = re.compile(r'\s+([a-zA-Z_]\w*)=(?:"([^"]*)"|\'([^\']*)\'|([^\s"\']+))\s*$')
 
 def parse_media_tag(content: str) -> Tuple[str, Dict[str, Any]]:
     """Extracts expression and trailing key=value attributes from media directives.

@@ -1,5 +1,5 @@
 from openpyxl import Workbook
-from app.engine.template_parser import parse_media_tag
+from app.engine.template_parser import ExpressionEvaluator, parse_media_tag
 from app.engine.template_processor import TemplateProcessor
 from app.renderer.fast_html_renderer import FastHtmlRenderer
 
@@ -21,7 +21,6 @@ def test_media_custom_width_height():
     out_wb = processor.process({})
     out_ws = out_wb.active
 
-    # Check openpyxl images dimensions
     images = out_ws._images
     assert len(images) == 2
 
@@ -34,7 +33,22 @@ def test_media_custom_width_height():
     assert bc_img.width == 260
     assert bc_img.height == 55
 
-    # Check HTML output contains exact width and height styling
     html = FastHtmlRenderer.render(out_ws)
     assert "width: 180px; height: 180px;" in html
     assert "width: 260px; height: 55px;" in html
+
+def test_qr_string_concatenation_with_number_and_string():
+    ev = ExpressionEvaluator()
+    expr, attrs = parse_media_tag("'https://verify.apex.corp/inv/' + invoice_no width=90 height=90")
+    
+    # 1. Test when invoice_no is an INTEGER (common in Oracle DB e.g. 10024)
+    res_int = ev.evaluate_expression(expr, {"invoice_no": 10024})
+    assert res_int == "https://verify.apex.corp/inv/10024"
+
+    # 2. Test when invoice_no is a STRING
+    res_str = ev.evaluate_expression(expr, {"invoice_no": "INV-2026-9001"})
+    assert res_str == "https://verify.apex.corp/inv/INV-2026-9001"
+
+    # 3. Test embedded token syntax
+    res_token = ev.evaluate_expression("https://verify.apex.corp/inv/{{invoice_no}}", {"invoice_no": "ABC"})
+    assert res_token == "https://verify.apex.corp/inv/ABC"
