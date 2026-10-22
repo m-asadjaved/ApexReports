@@ -139,3 +139,41 @@ def test_template_processor_nested_master_detail():
     assert out_ws["A8"].value == "SCOTT"
     assert out_ws["A9"].value == "Dept Total:"
     assert out_ws["B9"].value == "=SUM(B6:B8)"
+
+def test_template_processor_counta():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "EmpCount"
+
+    ws["A1"] = "{{#each employees}}"
+    ws["A2"] = "{{ename}}"
+    ws["A3"] = "{{/each}}"
+    ws["A4"] = "Total Staff:"
+    ws["B4"] = "=COUNTA(A2:A2)"
+
+    data = {
+        "employees": [
+            {"ename": "SMITH"},
+            {"ename": "ALLEN"},
+            {"ename": "WARD"}
+        ]
+    }
+
+    processor = TemplateProcessor(wb)
+    out_wb = processor.process(data)
+    out_ws = out_wb.active
+
+    # Target rows 1, 2, 3 are employees
+    assert out_ws["A1"].value == "SMITH"
+    assert out_ws["A2"].value == "ALLEN"
+    assert out_ws["A3"].value == "WARD"
+    
+    # Target row 4: Total Staff
+    assert out_ws["A4"].value == "Total Staff:"
+    # Formula range was auto-expanded to A1:A3
+    assert out_ws["B4"].value == "=COUNTA(A1:A3)"
+
+    # HTML rendering evaluates COUNTA to 3
+    from app.renderer.fast_html_renderer import FastHtmlRenderer
+    html = FastHtmlRenderer.render(out_ws)
+    assert ">3</td>" in html

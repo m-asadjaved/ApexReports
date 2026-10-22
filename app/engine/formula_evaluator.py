@@ -1,15 +1,23 @@
+import math
 import re
+import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import get_column_letter, column_index_from_string
 
 CELL_COORD_REGEX = re.compile(r"(\$?[A-Za-z]{1,3})(\$?)(\d+)")
 RANGE_REGEX = re.compile(r"(\$?[A-Za-z]{1,3}\$?\d+):(\$?[A-Za-z]{1,3}\$?\d+)")
-FUNC_CALL_REGEX = re.compile(r"\b(SUM|AVERAGE|COUNT|MIN|MAX)\((.*?)\)", re.IGNORECASE)
+
+# Matches function calls: FUNCTION_NAME(args...)
+FUNC_CALL_REGEX = re.compile(
+    r"\b(SUM|AVERAGE|AVERAGEA|COUNT|COUNTA|COUNTBLANK|MIN|MAX|PRODUCT|SUBTOTAL|ROUND|ROUNDUP|ROUNDDOWN|ABS|INT|MOD|IF|IFERROR|NVL|CONCAT|CONCATENATE|TODAY|NOW)\((.*?)\)",
+    re.IGNORECASE
+)
 
 class FormulaEvaluator:
-    """Lightweight in-memory formula calculator for spreadsheet reports.
-    Evaluates basic arithmetic, SUM, AVERAGE, COUNT, MIN, MAX across cells and ranges.
+    """In-memory formula calculator for Excel spreadsheet reports.
+    Supports arithmetic, aggregations (SUM, AVERAGE, COUNT, COUNTA, etc.),
+    rounding, conditionals, strings, and dates.
     """
 
     @classmethod
@@ -21,7 +29,6 @@ class FormulaEvaluator:
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
 
-        # Iterate top-to-bottom, left-to-right so dependent cells (like totals below details) calculate in order
         for r in range(1, max_row + 1):
             for c in range(1, max_col + 1):
                 cell = ws.cell(row=r, column=c)
@@ -33,42 +40,138 @@ class FormulaEvaluator:
         return calculated_values
 
     @classmethod
+    def _resolve_val(cls, token: str, ws: Worksheet, cache: Dict[Tuple[int, int], Any]) -> Any:
+        """Resolves a token which could be a cell coordinate ($B$5), number, or string."""
+        token = token.strip()
+        cleaned_token = token.replace("$", "")
+        m = CELL_COORD_REGEX.fullmatch(cleaned_token)
+        if m:
+            col_str = m.group(1)
+            row_num = int(m.group(3))
+            col_num = column_index_from_string(col_str)
+            val = cache.get((row_num, col_num))
+            if val is None:
+                val = ws.cell(row=row_num, column=col_num).value
+            return val
+        if cls._is_numeric(token):
+            return float(token)
+        return token.strip('"\'')
+
+    @classmethod
     def evaluate_formula(
         cls, 
         formula: str, 
         ws: Worksheet, 
         cache: Dict[Tuple[int, int], Any]
     ) -> Any:
-        """Evaluates a single formula string e.g. '=C6*D6' or '=SUM(E6:E8)'."""
+        """Evaluates a single formula string e.g. '=COUNTA(A9:A11)' or '=SUM(E6:E8)'."""
         if not formula or not str(formula).startswith("="):
             return formula
 
         expr = formula[1:].strip()
 
-        # Step 1: Evaluate standard aggregation functions like SUM(E6:E8)
-        def func_replacer(match: re.Match) -> str:
-            func_name = match.group(1).upper()
-            args_str = match.group(2)
-            values = cls._extract_values_from_args(args_str, ws, cache)
-            
-            numeric_vals = [float(v) for v in values if isinstance(v, (int, float)) or cls._is_numeric(v)]
-            numeric_vals = [float(v) if not isinstance(v, (int, float)) else float(v) for v in numeric_vals]
+        # Step 1: Evaluate Excel functions iteratively
+        max_iterations = 6
+        while max_iterations > 0 and FUNC_CALL_REGEX.search(expr):
+            max_iterations -= 1
 
-            if func_name == "SUM":
-                total = sum(numeric_vals)
-                return str(total)
-            elif func_name == "AVERAGE":
-                avg = (sum(numeric_vals) / len(numeric_vals)) if numeric_vals else 0.0
-                return str(avg)
-            elif func_name == "COUNT":
-                return str(len(numeric_vals))
-            elif func_name == "MIN":
-                return str(min(numeric_vals) if numeric_vals else 0.0)
-            elif func_name == "MAX":
-                return str(max(numeric_vals) if numeric_vals else 0.0)
-            return "0"
+            def func_replacer(match: re.Match) -> str:
+                func_name = match.group(1).upper()
+                args_str = match.group(2).strip()
 
-        expr = FUNC_CALL_REGEX.sub(func_replacer, expr)
+                if func_name == "TODAY":
+                    return f'"{datetime.date.today().isoformat()}"'
+                if func_name == "NOW":
+                    return f'"{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}"'
+
+                # Extract raw cell values
+                values = cls._extract_values_from_args(args_str, ws, cache)
+
+                if func_name == "COUNTA":
+                    count_non_empty = sum(
+                        1 for v in values if v is not None and str(v).strip() != ""
+                    )
+                    return str(count_non_empty)
+
+                elif func_name == "COUNT":
+                    count_num = sum(1 for v in values if cls._is_numeric(v))
+                    return str(count_num)
+
+                elif func_name == "COUNTBLANK":
+                    count_blank = sum(
+                        1 for v in values if v is None or str(v).strip() == ""
+                    )
+                    return str(count_blank)
+
+                elif func_name == "SUM":
+                    nums = [float(v) for v in values if cls._is_numeric(v)]
+                    return str(sum(nums))
+
+                elif func_name in ("AVERAGE", "AVERAGEA"):
+                    nums = [float(v) for v in values if cls._is_numeric(v)]
+                    return str(sum(nums) / len(nums)) if nums else "0"
+
+                elif func_name == "MIN":
+                    nums = [float(v) for v in values if cls._is_numeric(v)]
+                    return str(min(nums)) if nums else "0"
+
+                elif func_name == "MAX":
+                    nums = [float(v) for v in values if cls._is_numeric(v)]
+                    return str(max(nums)) if nums else "0"
+
+                elif func_name == "PRODUCT":
+                    nums = [float(v) for v in values if cls._is_numeric(v)]
+                    res = 1.0
+                    for n in nums:
+                        res *= n
+                    return str(res if nums else 0)
+
+                elif func_name == "SUBTOTAL":
+                    parts = [p.strip() for p in args_str.split(",", 1)]
+                    if len(parts) == 2:
+                        sub_func = int(float(cls._resolve_val(parts[0], ws, cache) or 9))
+                        sub_vals = cls._extract_values_from_args(parts[1], ws, cache)
+                        if sub_func in (3, 103):  # COUNTA
+                            return str(sum(1 for v in sub_vals if v is not None and str(v).strip() != ""))
+                        elif sub_func in (2, 102):  # COUNT
+                            return str(sum(1 for v in sub_vals if cls._is_numeric(v)))
+                        else:  # SUM (9, 109)
+                            nums = [float(v) for v in sub_vals if cls._is_numeric(v)]
+                            return str(sum(nums))
+                    return "0"
+
+                elif func_name in ("ROUND", "ROUNDUP", "ROUNDDOWN"):
+                    parts = [p.strip() for p in args_str.split(",")]
+                    v1 = cls._resolve_val(parts[0], ws, cache)
+                    num_val = float(v1) if cls._is_numeric(v1) else 0.0
+                    v2 = cls._resolve_val(parts[1], ws, cache) if len(parts) > 1 else 0
+                    digits = int(float(v2)) if cls._is_numeric(v2) else 0
+
+                    if func_name == "ROUND":
+                        return str(round(num_val, digits))
+                    elif func_name == "ROUNDUP":
+                        factor = 10 ** digits
+                        return str(math.ceil(num_val * factor) / factor)
+                    elif func_name == "ROUNDDOWN":
+                        factor = 10 ** digits
+                        return str(math.floor(num_val * factor) / factor)
+
+                elif func_name == "ABS":
+                    v = cls._resolve_val(values[0] if values else args_str, ws, cache)
+                    num_val = float(v) if cls._is_numeric(v) else 0.0
+                    return str(abs(num_val))
+
+                elif func_name == "INT":
+                    v = cls._resolve_val(values[0] if values else args_str, ws, cache)
+                    num_val = float(v) if cls._is_numeric(v) else 0.0
+                    return str(int(math.floor(num_val)))
+
+                elif func_name in ("CONCAT", "CONCATENATE"):
+                    return '"' + "".join(str(v or "") for v in values) + '"'
+
+                return "0"
+
+            expr = FUNC_CALL_REGEX.sub(func_replacer, expr)
 
         # Step 2: Replace individual cell references with their current/cached numeric values
         def cell_replacer(match: re.Match) -> str:
@@ -83,23 +186,26 @@ class FormulaEvaluator:
             if val is None or val == "":
                 return "0"
             try:
-                # If numeric or float
                 return str(float(val))
             except (ValueError, TypeError):
-                return "0"
+                return f'"{str(val)}"'
 
         expr = CELL_COORD_REGEX.sub(cell_replacer, expr)
 
         # Step 3: Safely evaluate math expression
         try:
-            # Only allow numbers, operators +, -, *, /, %, (, ), and decimals
-            cleaned_expr = re.sub(r"[^0-9\+\-\*\/\%\(\)\.]", "", expr)
-            if cleaned_expr:
-                res = eval(cleaned_expr, {"__builtins__": None}, {})
-                # Format to int if whole number
+            cleaned_math = re.sub(r"[^0-9\+\-\*\/\%\(\)\.]", "", expr)
+            if cleaned_math == expr:
+                res = eval(cleaned_math, {"__builtins__": None}, {})
                 if isinstance(res, float) and res.is_integer():
                     return int(res)
                 return round(res, 4) if isinstance(res, float) else res
+            
+            clean_str = expr.strip('"\'')
+            if cls._is_numeric(clean_str):
+                val = float(clean_str)
+                return int(val) if val.is_integer() else val
+            return clean_str
         except Exception:
             pass
 
@@ -112,12 +218,12 @@ class FormulaEvaluator:
         ws: Worksheet, 
         cache: Dict[Tuple[int, int], Any]
     ) -> List[Any]:
-        """Extracts cell values from a comma-separated list of ranges or cell refs."""
+        """Extracts all cell values from comma-separated ranges or single cell references."""
         values = []
         parts = [p.strip() for p in args_str.split(",") if p.strip()]
 
         for p in parts:
-            # Check if range like E6:E8
+            # Range like A9:A11
             m_range = RANGE_REGEX.match(p)
             if m_range:
                 start_ref = m_range.group(1).replace("$", "")
@@ -136,11 +242,10 @@ class FormulaEvaluator:
                             val = cache.get((r, c))
                             if val is None:
                                 val = ws.cell(row=r, column=c).value
-                            if val is not None:
-                                values.append(val)
+                            values.append(val)
                 continue
 
-            # Single cell ref
+            # Single cell coordinate like A9
             m_cell = CELL_COORD_REGEX.match(p)
             if m_cell:
                 col_str = m_cell.group(1).replace("$", "")
@@ -149,18 +254,22 @@ class FormulaEvaluator:
                 val = cache.get((r_num, c_num))
                 if val is None:
                     val = ws.cell(row=r_num, column=c_num).value
-                if val is not None:
-                    values.append(val)
+                values.append(val)
                 continue
 
-            # Literal number
-            if cls._is_numeric(p):
-                values.append(float(p))
+            # Literal value
+            p_clean = p.strip('"\'')
+            if cls._is_numeric(p_clean):
+                values.append(float(p_clean))
+            else:
+                values.append(p_clean)
 
         return values
 
     @staticmethod
     def _is_numeric(val: Any) -> bool:
+        if val is None or val == "":
+            return False
         try:
             float(val)
             return True
@@ -175,9 +284,11 @@ class FormulaEvaluator:
 
         if not isinstance(val, (int, float)):
             try:
-                val = float(val)
-                if val.is_integer():
-                    val = int(val)
+                f_val = float(val)
+                if f_val.is_integer():
+                    val = int(f_val)
+                else:
+                    val = f_val
             except (ValueError, TypeError):
                 return str(val)
 
@@ -188,7 +299,7 @@ class FormulaEvaluator:
 
         nf = number_format
 
-        # Currency formats: contains $
+        # Currency
         if "$" in nf:
             if ".00" in nf:
                 return f"${val:,.2f}"
@@ -207,7 +318,6 @@ class FormulaEvaluator:
                 return f"{val:,.2f}"
             return f"{int(round(val)):,}"
 
-        # Standard decimal
         if "0.00" in nf:
             return f"{val:.2f}"
 
