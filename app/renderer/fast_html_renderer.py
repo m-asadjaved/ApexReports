@@ -4,17 +4,21 @@ import html
 from typing import Any, Dict, Set, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import get_column_letter
+from app.engine.formula_evaluator import FormulaEvaluator
 
 class FastHtmlRenderer:
-    """Renders an openpyxl Worksheet into responsive, stylized HTML in < 25ms."""
+    """Renders an openpyxl Worksheet into responsive, stylized HTML with calculated formulas in < 25ms."""
 
     @classmethod
     def render(cls, ws: Worksheet, title: str = "Report Preview") -> str:
-        """Converts openpyxl worksheet into HTML with inline CSS styling."""
+        """Converts openpyxl worksheet into HTML with inline CSS styling and calculated values."""
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
 
-        # Track merged cells: (row, col) -> (rowspan, colspan)
+        # 1. Calculate all formulas in-memory (SUM, arithmetic, etc.)
+        calc_cache = FormulaEvaluator.evaluate_worksheet(ws)
+
+        # 2. Track merged cells: (row, col) -> (rowspan, colspan)
         merged_spans: Dict[Tuple[int, int], Tuple[int, int]] = {}
         skip_cells: Set[Tuple[int, int]] = set()
 
@@ -29,28 +33,32 @@ class FastHtmlRenderer:
                     if (r, c) != (min_r, min_c):
                         skip_cells.add((r, c))
 
-        # Map embedded images to cell coordinates
+        # 3. Map embedded images (barcodes, QR codes, logos) to cell coordinates
         cell_images: Dict[str, str] = {}
         for img in getattr(ws, "_images", []):
             try:
-                # img.anchor._from gives col and row (0-based in some openpyxl versions)
-                from_col = getattr(img.anchor._from, "col", 0) + 1
-                from_row = getattr(img.anchor._from, "row", 0) + 1
-                coord = f"{get_column_letter(from_col)}{from_row}"
-                
-                # Read image bytes
-                img_stream = img.ref
-                if isinstance(img_stream, io.BytesIO):
-                    raw_bytes = img_stream.getvalue()
-                elif hasattr(img_stream, "read"):
-                    img_stream.seek(0)
-                    raw_bytes = img_stream.read()
+                # Resolve coordinate from anchor
+                if isinstance(img.anchor, str):
+                    coord = img.anchor.upper()
+                elif hasattr(img, "anchor") and hasattr(img.anchor, "_from"):
+                    from_col = getattr(img.anchor._from, "col", 0) + 1
+                    from_row = getattr(img.anchor._from, "row", 0) + 1
+                    coord = f"{get_column_letter(from_col)}{from_row}"
                 else:
-                    raw_bytes = b""
-                
+                    continue
+
+                # Extract PNG bytes from PIL image
+                raw_bytes = b""
+                if hasattr(img.ref, "save"):
+                    buf = io.BytesIO()
+                    img.ref.save(buf, format="PNG")
+                    raw_bytes = buf.getvalue()
+                elif isinstance(img.ref, io.BytesIO):
+                    raw_bytes = img.ref.getvalue()
+
                 if raw_bytes:
                     b64 = base64.b64encode(raw_bytes).decode("ascii")
-                    cell_images[coord] = f'<img src="data:image/png;base64,{b64}" style="max-height: 80px; max-width: 100%; object-fit: contain;" />'
+                    cell_images[coord] = f'<img src="data:image/png;base64,{b64}" style="max-height: 70px; max-width: 100%; object-fit: contain; display: block;" />'
             except Exception:
                 pass
 
@@ -90,7 +98,6 @@ class FastHtmlRenderer:
                 # Extract styling
                 style_parts = []
                 if cell.has_style:
-                    # Font styling
                     if cell.font:
                         if cell.font.bold:
                             style_parts.append("font-weight: bold")
@@ -101,17 +108,15 @@ class FastHtmlRenderer:
                         if cell.font.color and getattr(cell.font.color, "rgb", None):
                             rgb = str(cell.font.color.rgb)
                             if len(rgb) == 8:
-                                rgb = rgb[2:]  # Strip alpha
+                                rgb = rgb[2:]
                             style_parts.append(f"color: #{rgb}")
 
-                    # Alignment
                     if cell.alignment:
                         if cell.alignment.horizontal:
                             style_parts.append(f"text-align: {cell.alignment.horizontal}")
                         if cell.alignment.vertical:
                             style_parts.append(f"vertical-align: {cell.alignment.vertical}")
 
-                    # Background fill
                     if cell.fill and getattr(cell.fill, "start_color", None):
                         fill_rgb = getattr(cell.fill.start_color, "rgb", None)
                         if fill_rgb and str(fill_rgb) != "00000000":
@@ -122,13 +127,20 @@ class FastHtmlRenderer:
 
                 style_attr = f' style="{"; ".join(style_parts)}"' if style_parts else ""
 
-                # Content
-                cell_val = cell.value
-                val_str = "" if cell_val is None else str(cell_val)
+                # Determine cell display value
+                # If it was a formula, use calculated value from calc_cache!
+                if (r, c) in calc_cache:
+                    raw_val = calc_cache[(r, c)]
+                else:
+                    raw_val = cell.value
+
+                # Format according to cell's number format
+                num_format = getattr(cell, "number_format", None)
+                formatted_val = FormulaEvaluator.format_cell_value(raw_val, num_format)
 
                 # Check if there is an embedded image for this cell
                 img_html = cell_images.get(coord, "")
-                content_html = img_html if img_html else html.escape(val_str)
+                content_html = img_html if img_html else html.escape(formatted_val)
 
                 html_out.append(f'<td{span_attrs}{style_attr}>{content_html}</td>')
 

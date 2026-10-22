@@ -1,0 +1,130 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-47a8-b9c0-123456789abc",
+    "name": "ApexReports Engine",
+    "description": "Collection of API requests for ApexReports - Excel-based reporting engine for Oracle APEX.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/v1/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "health"]
+        }
+      }
+    },
+    {
+      "name": "2. List Templates",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8000/api/v1/templates",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "templates"]
+        }
+      }
+    },
+    {
+      "name": "3. Render Invoice (PDF)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"template_code\": \"INVOICE_REPORT\",\n  \"format\": \"pdf\",\n  \"response_mode\": \"binary\",\n  \"filename\": \"Invoice_INV-2026-9001.pdf\",\n  \"data\": {\n    \"company\": {\n      \"name\": \"Apex Enterprise Technologies Ltd.\"\n    },\n    \"invoice_no\": \"INV-2026-9001\",\n    \"invoice_date\": \"2026-10-22\",\n    \"customer\": {\n      \"name\": \"Acme Global Corporation\"\n    },\n    \"items\": [\n      {\n        \"item_code\": \"ORA-APX-01\",\n        \"description\": \"Oracle APEX Custom Engine License\",\n        \"qty\": 5,\n        \"unit_price\": 450.00\n      },\n      {\n        \"item_code\": \"ORA-APX-02\",\n        \"description\": \"Oracle Reports 6i Migration Consulting\",\n        \"qty\": 20,\n        \"unit_price\": 125.00\n      },\n      {\n        \"item_code\": \"SUP-247\",\n        \"description\": \"24/7 Enterprise SLA Support Package\",\n        \"qty\": 1,\n        \"unit_price\": 1500.00\n      }\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/v1/reports/render",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "reports", "render"]
+        }
+      }
+    },
+    {
+      "name": "4. Render Invoice (HTML Preview)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"template_code\": \"INVOICE_REPORT\",\n  \"format\": \"html\",\n  \"response_mode\": \"binary\",\n  \"data\": {\n    \"company\": {\n      \"name\": \"Apex Enterprise Technologies Ltd.\"\n    },\n    \"invoice_no\": \"INV-2026-9001\",\n    \"invoice_date\": \"2026-10-22\",\n    \"customer\": {\n      \"name\": \"Acme Global Corporation\"\n    },\n    \"items\": [\n      {\n        \"item_code\": \"ORA-APX-01\",\n        \"description\": \"Oracle APEX Custom Engine License\",\n        \"qty\": 5,\n        \"unit_price\": 450.00\n      },\n      {\n        \"item_code\": \"ORA-APX-02\",\n        \"description\": \"Oracle Reports 6i Migration Consulting\",\n        \"qty\": 20,\n        \"unit_price\": 125.00\n      }\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/v1/reports/render",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "reports", "render"]
+        }
+      }
+    },
+    {
+      "name": "5. Render Master-Detail Dept Employees (PDF)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"template_code\": \"DEPT_EMPLOYEES\",\n  \"format\": \"pdf\",\n  \"response_mode\": \"binary\",\n  \"filename\": \"Department_Report.pdf\",\n  \"data\": {\n    \"departments\": [\n      {\n        \"dept_name\": \"ACCOUNTING\",\n        \"loc\": \"NEW YORK\",\n        \"employees\": [\n          { \"empno\": 7782, \"ename\": \"CLARK\", \"job\": \"MANAGER\", \"sal\": 2450.00 },\n          { \"empno\": 7839, \"ename\": \"KING\", \"job\": \"PRESIDENT\", \"sal\": 5000.00 },\n          { \"empno\": 7934, \"ename\": \"MILLER\", \"job\": \"CLERK\", \"sal\": 1300.00 }\n        ]\n      },\n      {\n        \"dept_name\": \"RESEARCH\",\n        \"loc\": \"DALLAS\",\n        \"employees\": [\n          { \"empno\": 7369, \"ename\": \"SMITH\", \"job\": \"CLERK\", \"sal\": 800.00 },\n          { \"empno\": 7566, \"ename\": \"JONES\", \"job\": \"MANAGER\", \"sal\": 2975.00 },\n          { \"empno\": 7788, \"ename\": \"SCOTT\", \"job\": \"ANALYST\", \"sal\": 3000.00 }\n        ]\n      }\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/v1/reports/render",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "reports", "render"]
+        }
+      }
+    },
+    {
+      "name": "6. Render Report (JSON Base64 Envelope)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"template_code\": \"INVOICE_REPORT\",\n  \"format\": \"pdf\",\n  \"response_mode\": \"json\",\n  \"data\": {\n    \"company\": { \"name\": \"Acme Inc.\" },\n    \"invoice_no\": \"INV-5500\",\n    \"invoice_date\": \"2026-10-22\",\n    \"customer\": { \"name\": \"Global Partner LLC\" },\n    \"items\": [\n      { \"item_code\": \"SRV-01\", \"description\": \"Cloud Hosting\", \"qty\": 1, \"unit_price\": 99.00 }\n    ]\n  }\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/v1/reports/render",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8000",
+          "path": ["api", "v1", "reports", "render"]
+        }
+      }
+    }
+  ]
+}
