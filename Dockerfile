@@ -5,12 +5,14 @@ FROM python:3.12-slim-bookworm
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
-# Install LibreOffice, fonts, curl, and required utilities
+# Install LibreOffice, Chromium (for CDP Pool), fonts, curl, and required utilities
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice \
     libreoffice-calc \
+    chromium \
     fonts-liberation \
     fonts-dejavu-core \
+    fonts-freefont-ttf \
     fontconfig \
     curl \
     && apt-get clean \

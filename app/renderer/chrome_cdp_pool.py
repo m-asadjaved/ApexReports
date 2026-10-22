@@ -75,6 +75,8 @@ class ChromeCdpPool:
             "--headless=new",
             f"--remote-debugging-port={cls._port}",
             "--disable-gpu",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
             "--no-first-run",
             "--no-default-browser-check",
             "--disable-background-networking",
