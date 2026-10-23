@@ -328,6 +328,6 @@ class FormulaEvaluator:
             return f"{int(round(val)):,}"
 
         if "0.00" in nf:
-            return f"{val:.2f}"
+            return f"{val:,.2f}" if abs(val) >= 1000 else f"{val:.2f}"
 
         return str(val)

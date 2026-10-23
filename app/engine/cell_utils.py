@@ -33,6 +33,8 @@ def render_cell_value(val: Any, context: Dict[str, Any]) -> Any:
         # Direct directives (blocks and media) should not be rendered here
         if tag_content.startswith(("#", "/")) or tag_content.startswith(("@image", "@barcode", "@qrcode", "@qr")):
             return val
+        if tag_content in ("@pages", "total_pages", "@total_pages", "_pages") and tag_content not in context:
+            return val
         evaluated = evaluator.evaluate_expression(tag_content, context)
         return evaluated if evaluated is not None else ""
 
@@ -40,6 +42,8 @@ def render_cell_value(val: Any, context: Dict[str, Any]) -> Any:
     def token_replace(m):
         tag = m.group(1).strip()
         if tag.startswith(("#", "/")) or tag.startswith(("@image", "@barcode", "@qrcode", "@qr")):
+            return m.group(0)
+        if tag in ("@pages", "total_pages", "@total_pages", "_pages") and tag not in context:
             return m.group(0)
         res = evaluator.evaluate_expression(tag, context)
         return str(res) if res is not None else ""

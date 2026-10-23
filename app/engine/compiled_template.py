@@ -213,8 +213,6 @@ class TemplateCompiler:
             f"}}\n"
             f"@media print {{\n"
             f"  .screen-page-num, .screen-total-pages {{ display: none !important; }}\n"
-            f"  .print-page-num::after {{ content: counter(page); }}\n"
-            f"  .print-total-pages::after {{ content: counter(pages); }}\n"
             f"}}\n</style>\n</head><body>\n"
             f'<div class="report-container">\n'
             f'<table class="report-table{grid_class}" style="width: 100%;">\n'
@@ -414,6 +412,21 @@ class TemplateCompiler:
                 body_rows.append(r)
                 i += 1
 
+        # Trim any trailing empty rows from body_rows
+        while body_rows:
+            last_r = body_rows[-1]
+            is_empty = all(
+                c.raw_val is None or str(c.raw_val).strip() == ""
+                for c in last_r.cells
+            ) and not any(
+                "background-color:" in c.style_str or "border" in c.style_str
+                for c in last_r.cells
+            )
+            if is_empty:
+                body_rows.pop()
+            else:
+                break
+
         ast_elements = cls._build_elements_tree(body_rows, 0, len(body_rows))
 
         return CompiledTemplateAST(
@@ -573,6 +586,32 @@ class CompiledRenderer:
             "@timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
         context = {**sys_context, **(data if isinstance(data, dict) else {})}
+        # Estimate total logical pages based on page breaks and each blocks with page_break=True
+        def _count_breaks(elements: List[CompiledElement], ctx: Dict[str, Any]) -> int:
+            b_cnt = 0
+            for el in elements:
+                if isinstance(el, PageBreakElement):
+                    b_cnt += 1
+                elif isinstance(el, EachBlockElement):
+                    raw_col = evaluator.evaluate_expression(el.collection_key, ctx)
+                    cnt = len(raw_col) if isinstance(raw_col, (list, tuple)) else (1 if isinstance(raw_col, dict) else 0)
+                    if el.attrs.get("page_break", False) and cnt > 1:
+                        b_cnt += (cnt - 1)
+                    if el.children and cnt > 0:
+                        first_item = raw_col[0] if isinstance(raw_col, (list, tuple)) else (raw_col if isinstance(raw_col, dict) else {})
+                        nested = {**ctx, **first_item} if isinstance(first_item, dict) else ctx
+                        b_cnt += (_count_breaks(el.children, nested) * cnt)
+                elif isinstance(el, IfBlockElement):
+                    if evaluator.evaluate_condition(el.condition, ctx):
+                        b_cnt += _count_breaks(el.children, ctx)
+            return b_cnt
+
+        tot_pages = 1 + _count_breaks(ast.elements, context)
+        context["@pages"] = tot_pages
+        context["total_pages"] = tot_pages
+        context["@total_pages"] = tot_pages
+        context["_pages"] = tot_pages
+
         buf: List[str] = [ast.header_html]
         col_accumulators: Dict[int, float] = {}
         pending_page_break: List[bool] = [False]
@@ -793,10 +832,10 @@ class CompiledRenderer:
             raw_s = str(cell.raw_val)
             cur_p = context.get("@page", context.get("page_no", 1))
             tot_p = context.get("@pages", context.get("total_pages", 1))
-            page_span = f'<span class="report-page-num"><span class="print-page-num"></span><span class="screen-page-num">{cur_p}</span></span>'
-            total_span = f'<span class="report-total-pages"><span class="print-total-pages"></span><span class="screen-total-pages">{tot_p}</span></span>'
+            page_span = f'<span class="report-page-num"><span class="screen-page-num">{cur_p}</span><span class="print-page-num">{cur_p}</span></span>'
+            total_span = f'<span class="report-total-pages"><span class="screen-total-pages">{tot_p}</span><span class="print-total-pages">{tot_p}</span></span>'
 
-            # Replace dynamic page counter tags with dual print/screen spans
+            # Replace dynamic page counter tags
             has_page_tags = any(k in raw_s for k in ("@page", "page_no", "@pages", "total_pages"))
             if has_page_tags:
                 raw_s = re.sub(r"\{\{(@page|page_no|@page_no|_page)\}\}", page_span, raw_s)

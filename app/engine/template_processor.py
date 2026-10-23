@@ -60,6 +60,18 @@ class TemplateProcessor:
             target_row_start=1
         )
 
+        # Trim any trailing empty rows from target_sheet
+        while total_emitted > 1:
+            last_target_r = total_emitted - 1
+            if last_target_r in self.footer_target_rows or last_target_r in self.header_target_rows:
+                break
+            last_cells = tuple(self.target_sheet.cell(row=last_target_r, column=col) for col in range(1, (self.target_sheet.max_column or 1) + 1))
+            if self._is_row_empty(last_cells):
+                self.target_sheet.delete_rows(last_target_r, 1)
+                total_emitted -= 1
+            else:
+                break
+
         self._resolve_formulas()
 
         for pb_row in self.page_breaks:
@@ -86,13 +98,9 @@ class TemplateProcessor:
             for c in range(1, max_c + 1):
                 cell = self.target_sheet.cell(row=r, column=c)
                 if cell.value and isinstance(cell.value, str):
-                    if "{{@pages}}" in cell.value or "{{total_pages}}" in cell.value or "{{@total_pages}}" in cell.value:
-                        cell.value = (
-                            cell.value
-                            .replace("{{@pages}}", str(total_pages))
-                            .replace("{{total_pages}}", str(total_pages))
-                            .replace("{{@total_pages}}", str(total_pages))
-                        )
+                    for tag in ("{{@pages}}", "{{total_pages}}", "{{@total_pages}}", "{{_pages}}"):
+                        if tag in cell.value:
+                            cell.value = cell.value.replace(tag, str(total_pages))
 
         return self.target_wb
 
@@ -193,7 +201,7 @@ class TemplateProcessor:
         try:
             min_c, min_r, max_c, max_r = range_boundaries(clean)
             if min_c and max_c:
-                eff_max_r = max(max_r or 1, final_row)
+                eff_max_r = max(1, final_row)
                 start_l = get_column_letter(min_c)
                 end_l = get_column_letter(max_c)
                 self.target_sheet.print_area = f"{start_l}{min_r or 1}:{end_l}{eff_max_r}"
@@ -361,7 +369,10 @@ class TemplateProcessor:
                     if close_idx < len(rows):
                         self._transfer_directive_borders(rows[close_idx], target_r - 1, from_side="top", to_side="bottom")
 
-                i = close_idx + 1
+                next_i = close_idx + 1
+                while next_i < end_idx and self._is_row_empty(rows[next_i]):
+                    next_i += 1
+                i = next_i
                 continue
 
             elif directive and directive["type"] == "page_break":
@@ -450,6 +461,24 @@ class TemplateProcessor:
                     if depth == 0:
                         return idx
         raise TemplateSyntaxException(f"Unclosed '{open_type}' block starting around line {start}")
+
+    @staticmethod
+    def _is_row_empty(row_cells: Tuple) -> bool:
+        """Returns True if every cell in row_cells has no value, no solid fill, and no border."""
+        for c in row_cells:
+            if c.value is not None and str(c.value).strip() != "":
+                return False
+            if getattr(c, "has_style", False):
+                if getattr(c.fill, "fill_type", None) in ("solid",):
+                    return False
+                if c.border and (
+                    getattr(c.border.top, "style", None) or
+                    getattr(c.border.bottom, "style", None) or
+                    getattr(c.border.left, "style", None) or
+                    getattr(c.border.right, "style", None)
+                ):
+                    return False
+        return True
 
     def _transfer_directive_borders(
         self,

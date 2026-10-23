@@ -189,3 +189,53 @@ def test_template_linter_header_footer_validation():
     res3 = TemplateLinter.lint_workbook(wb_valid, "VALID_SYS_VARS", data={})
     assert res3["valid"] is True
     assert not any(w["code"] == "UNRESOLVED_VARIABLE" for w in res3["warnings"])
+
+
+def test_no_trailing_ghost_rows_and_page_number_print_values():
+    """Verify that trailing empty rows in Excel templates are not emitted and page numbers never show 0 0 on print."""
+    import re
+    from app.engine.compiled_template import TemplateCompiler, CompiledRenderer
+    from app.engine.template_processor import TemplateProcessor
+    from app.renderer.fast_html_renderer import FastHtmlRenderer
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    
+    ws["A1"] = "{{#page-header}}"
+    ws["A2"] = "Header Title"
+    ws["A3"] = "{{/page-header}}"
+    
+    ws["A4"] = "{{#each items}}"
+    ws["A5"] = "{{name}}: {{amount}}"
+    ws["A6"] = "{{/each}}"
+    
+    ws["A7"] = "{{#page-footer}}"
+    ws["A8"] = "Footer: Page {{@page}} of {{@pages}}"
+    ws["A9"] = "{{/page-footer}}"
+    
+    # Touch row 50 so ws.max_row becomes 50
+    _ = ws.cell(row=50, column=1)
+    
+    data = {"items": [{"name": "Item 1", "amount": 100}]}
+    
+    # 1. Fast Mode
+    ast = TemplateCompiler.compile(wb, "TEST_NO_GHOST")
+    fast_html = CompiledRenderer.render(ast, data)
+    
+    fast_trs = re.findall(r'<tr[^>]*>', fast_html)
+    assert len(fast_trs) < 15, f"Expected < 15 rows, got {len(fast_trs)}"
+    assert 'content: counter(page)' not in fast_html
+    assert 'class="print-page-num">1<' in fast_html
+    assert 'class="print-total-pages">1<' in fast_html
+    
+    # 2. Full Mode
+    proc = TemplateProcessor(wb)
+    out_wb = proc.process(data)
+    out_ws = out_wb.active
+    full_html = FastHtmlRenderer.render(out_ws)
+    
+    full_trs = re.findall(r'<tr[^>]*>', full_html)
+    assert len(full_trs) < 15, f"Expected < 15 rows, got {len(full_trs)}"
+    assert 'content: counter(page)' not in full_html
+    assert 'Footer: Page 1 of 1' in full_html
+

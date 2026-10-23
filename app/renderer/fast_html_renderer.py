@@ -162,26 +162,58 @@ class FastHtmlRenderer:
                 clean = pa_str.split("!")[-1].replace("$", "").strip()
                 try:
                     min_c, min_r, max_c, max_r = range_boundaries(clean)
-                    if min_c and max_c:
-                        eff_max_r = max(max_r or ws.max_row or 1, ws.max_row or 1)
-                        eff_min_r = min_r or 1
+                    if min_c and max_c and max_r:
+                        eff_max_r = min(max_r, ws.max_row or max_r)
+                        eff_min_r = min(min_r or 1, eff_max_r)
                         return (min_c or 1, eff_min_r, max_c, eff_max_r)
                 except Exception:
                     pass
 
-        # Fallback: find highest column with actual values, styles, or explicit column dimension
+        # Fallback: scan for highest row and column with actual values, fills, or borders
         max_col_detected = 1
-        max_row_detected = ws.max_row or 1
+        max_row_detected = 1
 
-        for r in range(1, max_row_detected + 1):
+        for r in range(1, (ws.max_row or 1) + 1):
+            row_has_content = False
             for c in range(1, (ws.max_column or 1) + 1):
                 cell = ws.cell(row=r, column=c)
-                if cell.value is not None or (cell.has_style and (getattr(cell.fill, "fill_type", None) or (cell.border and getattr(cell.border.top, "style", None)))):
+                has_val = (cell.value is not None and str(cell.value).strip() != "")
+                has_fill = (cell.has_style and getattr(cell.fill, "fill_type", None) in ("solid",))
+                has_border = (cell.has_style and cell.border and (
+                    getattr(cell.border.top, "style", None) or
+                    getattr(cell.border.bottom, "style", None) or
+                    getattr(cell.border.left, "style", None) or
+                    getattr(cell.border.right, "style", None)
+                ))
+                if has_val or has_fill or has_border:
                     max_col_detected = max(max_col_detected, c)
+                    row_has_content = True
+            if row_has_content:
+                max_row_detected = max(max_row_detected, r)
 
         for rng in getattr(ws.merged_cells, "ranges", []):
             if getattr(rng, "max_col", 0) > max_col_detected:
                 max_col_detected = rng.max_col
+            if getattr(rng, "max_row", 0) > max_row_detected:
+                max_row_detected = max(max_row_detected, rng.max_row)
+
+        # Check embedded images in ws._images (e.g. barcodes, QR codes, logos)
+        for img in getattr(ws, "_images", []):
+            try:
+                if isinstance(img.anchor, str):
+                    m_coord = re.match(r"^([A-Za-z]+)(\d+)$", img.anchor.strip())
+                    if m_coord:
+                        img_c = column_index_from_string(m_coord.group(1))
+                        img_r = int(m_coord.group(2))
+                        max_col_detected = max(max_col_detected, img_c)
+                        max_row_detected = max(max_row_detected, img_r)
+                elif hasattr(img, "anchor") and hasattr(img.anchor, "_from"):
+                    from_col = getattr(img.anchor._from, "col", 0) + 1
+                    from_row = getattr(img.anchor._from, "row", 0) + 1
+                    max_col_detected = max(max_col_detected, from_col)
+                    max_row_detected = max(max_row_detected, from_row)
+            except Exception:
+                pass
 
         # Also check columns with explicit width that contain content
         for k, col_dim in ws.column_dimensions.items():
@@ -194,7 +226,7 @@ class FastHtmlRenderer:
                     except Exception:
                         pass
 
-        return (1, 1, max(1, min(max_col_detected, ws.max_column or 1)), max_row_detected)
+        return (1, 1, max(1, max_col_detected), max(1, max_row_detected))
 
     @classmethod
     def render(
@@ -435,8 +467,6 @@ class FastHtmlRenderer:
             '}',
             '@media print {',
             '  .screen-page-num, .screen-total-pages { display: none !important; }',
-            '  .print-page-num::after { content: counter(page); }',
-            '  .print-total-pages::after { content: counter(pages); }',
             '}',
             '</style>',
             '</head><body>',
@@ -644,8 +674,8 @@ class FastHtmlRenderer:
 
                 # Dynamic page numbering counters
                 if "{{" in content_html:
-                    page_span = f'<span class="report-page-num"><span class="print-page-num"></span><span class="screen-page-num">{current_logical_page}</span></span>'
-                    total_span = f'<span class="report-total-pages"><span class="print-total-pages"></span><span class="screen-total-pages">{total_logical_pages}</span></span>'
+                    page_span = f'<span class="report-page-num"><span class="screen-page-num">{current_logical_page}</span><span class="print-page-num">{current_logical_page}</span></span>'
+                    total_span = f'<span class="report-total-pages"><span class="screen-total-pages">{total_logical_pages}</span><span class="print-total-pages">{total_logical_pages}</span></span>'
                     content_html = re.sub(r"\{\{(@page|page_no|@page_no|_page)\}\}", page_span, content_html)
                     content_html = re.sub(r"\{\{(@pages|total_pages|@total_pages|_pages)\}\}", total_span, content_html)
 
