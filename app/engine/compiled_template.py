@@ -224,7 +224,7 @@ class TemplateCompiler:
                     continue
 
                 cell = ws.cell(row=r, column=c)
-                colspan, rowspan = merged_spans.get((r, c), (1, 1))
+                rowspan, colspan = merged_spans.get((r, c), (1, 1))
 
                 # Style building
                 css_rules = []
@@ -262,6 +262,43 @@ class TemplateCompiler:
                             b_str = FastHtmlRenderer._format_border_side(side, theme_colors)
                             if b_str:
                                 css_rules.append(f"border-{side_name}: {b_str};")
+
+                # For merged cells, ensure outer boundary borders are gathered from range edge cells
+                if (r, c) in merged_spans:
+                    end_r = r + rowspan - 1
+                    end_c = c + colspan - 1
+                    if not any(rule.startswith("border-right:") for rule in css_rules):
+                        for rk in range(r, end_r + 1):
+                            sc = ws.cell(row=rk, column=end_c)
+                            if sc.border and getattr(sc.border.right, "style", None):
+                                b_str = FastHtmlRenderer._format_border_side(sc.border.right, theme_colors)
+                                if b_str:
+                                    css_rules.append(f"border-right: {b_str};")
+                                break
+                    if not any(rule.startswith("border-bottom:") for rule in css_rules):
+                        for ck in range(c, end_c + 1):
+                            sc = ws.cell(row=end_r, column=ck)
+                            if sc.border and getattr(sc.border.bottom, "style", None):
+                                b_str = FastHtmlRenderer._format_border_side(sc.border.bottom, theme_colors)
+                                if b_str:
+                                    css_rules.append(f"border-bottom: {b_str};")
+                                break
+                    if not any(rule.startswith("border-left:") for rule in css_rules):
+                        for rk in range(r, end_r + 1):
+                            sc = ws.cell(row=rk, column=c)
+                            if sc.border and getattr(sc.border.left, "style", None):
+                                b_str = FastHtmlRenderer._format_border_side(sc.border.left, theme_colors)
+                                if b_str:
+                                    css_rules.append(f"border-left: {b_str};")
+                                break
+                    if not any(rule.startswith("border-top:") for rule in css_rules):
+                        for ck in range(c, end_c + 1):
+                            sc = ws.cell(row=r, column=ck)
+                            if sc.border and getattr(sc.border.top, "style", None):
+                                b_str = FastHtmlRenderer._format_border_side(sc.border.top, theme_colors)
+                                if b_str:
+                                    css_rules.append(f"border-top: {b_str};")
+                                break
 
                 style_str = " ".join(css_rules)
                 raw_val = cell.value

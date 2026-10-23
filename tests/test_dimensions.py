@@ -231,3 +231,53 @@ def test_template_processor_updates_print_area_on_expansion():
     # Column C must be excluded
     assert "Scratch Column" not in html
     assert html.count("<col style=") == 2
+
+
+def test_merged_cells_spans_and_borders():
+    """Verify merged cell colspan/rowspan accuracy and outer boundary border preservation."""
+    from openpyxl.styles import Border, Side
+    from app.engine.compiled_template import TemplateCompiler
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "MergeTest"
+
+    # Merge A1:D1 (1 row x 4 cols: colspan=4, rowspan=1)
+    ws.merge_cells("A1:D1")
+    ws["A1"] = "Horizontal Merge Title"
+
+    # Merge A2:B4 (3 rows x 2 cols: colspan=2, rowspan=3)
+    ws.merge_cells("A2:B4")
+    ws["A2"] = "Block Merge"
+
+    # Put a border on the outer edge (e.g. cell D1 right border, cell B4 bottom border)
+    thin_border = Border(
+        right=Side(style="thin", color="000000"),
+        bottom=Side(style="thin", color="000000"),
+    )
+    ws["D1"].border = thin_border
+    ws["B4"].border = thin_border
+
+    # Test 1: FastHtmlRenderer
+    html = FastHtmlRenderer.render(ws, "Merge Test")
+    assert '<td colspan="4"' in html
+    assert 'Horizontal Merge Title' in html
+    assert 'colspan="2"' in html
+    assert 'rowspan="3"' in html
+    assert 'Block Merge' in html
+    # Boundary borders preserved
+    assert "border-right: 1px solid #000000" in html
+    assert "border-bottom: 1px solid #000000" in html
+
+    # Test 2: TemplateCompiler & CompiledRenderer
+    from app.engine.compiled_template import CompiledRenderer
+    compiled = TemplateCompiler.compile(wb, template_code="TEST_MERGE")
+    compiled_html = CompiledRenderer.render(compiled, {})
+    assert '<td colspan="4"' in compiled_html
+    assert 'Horizontal Merge Title' in compiled_html
+    assert 'colspan="2"' in compiled_html
+    assert 'rowspan="3"' in compiled_html
+    assert 'Block Merge' in compiled_html
+    assert "border-right: 1px solid #000000" in compiled_html
+    assert "border-bottom: 1px solid #000000" in compiled_html
+

@@ -527,6 +527,44 @@ class FastHtmlRenderer:
                         if right_b:
                             style_parts.append(f"border-right: {right_b}")
 
+                # For merged cells, ensure outer edge borders are captured from boundary cells
+                if (r, c) in merged_spans:
+                    r_span, c_span = merged_spans[(r, c)]
+                    end_r = r + r_span - 1
+                    end_c = c + c_span - 1
+                    if not any(sp.startswith("border-right:") for sp in style_parts):
+                        for rk in range(r, end_r + 1):
+                            sc = ws.cell(row=rk, column=end_c)
+                            if sc.border and getattr(sc.border.right, "style", None):
+                                rb = cls._format_border_side(sc.border.right, theme_colors)
+                                if rb:
+                                    style_parts.append(f"border-right: {rb}")
+                                break
+                    if not any(sp.startswith("border-bottom:") for sp in style_parts):
+                        for ck in range(c, end_c + 1):
+                            sc = ws.cell(row=end_r, column=ck)
+                            if sc.border and getattr(sc.border.bottom, "style", None):
+                                bb = cls._format_border_side(sc.border.bottom, theme_colors)
+                                if bb:
+                                    style_parts.append(f"border-bottom: {bb}")
+                                break
+                    if not any(sp.startswith("border-left:") for sp in style_parts):
+                        for rk in range(r, end_r + 1):
+                            sc = ws.cell(row=rk, column=c)
+                            if sc.border and getattr(sc.border.left, "style", None):
+                                lb = cls._format_border_side(sc.border.left, theme_colors)
+                                if lb:
+                                    style_parts.append(f"border-left: {lb}")
+                                break
+                    if not any(sp.startswith("border-top:") for sp in style_parts):
+                        for ck in range(c, end_c + 1):
+                            sc = ws.cell(row=r, column=ck)
+                            if sc.border and getattr(sc.border.top, "style", None):
+                                tb = cls._format_border_side(sc.border.top, theme_colors)
+                                if tb:
+                                    style_parts.append(f"border-top: {tb}")
+                                break
+
                 cf_overlay = cf_overlays.get((r, c))
                 if cf_overlay:
                     if cf_overlay.bg_color:
