@@ -105,3 +105,24 @@ def test_compiler_mode_full_bypasses_cache():
     assert res.status_code == 200
     assert res.headers.get("X-Template-Cache") == "BYPASS"
     assert "RESEARCH" in res.text
+
+
+def test_no_literal_page_break_text():
+    TemplateCacheManager.invalidate("SALES_TAX_INV")
+    payload = {
+        "template_code": "SALES_TAX_INV",
+        "format": "html",
+        "compiler": "fast",
+        "data": {
+            "invoices": [
+                {"invoice_no": "101", "items": [{"item_code": "A", "qty": 1, "unit_price": 10}]},
+                {"invoice_no": "102", "items": [{"item_code": "B", "qty": 2, "unit_price": 20}]}
+            ]
+        }
+    }
+    res = client.post("/api/v1/reports/render", json=payload)
+    assert res.status_code == 200
+    # Must NOT contain literal "PAGE BREAK" text
+    assert "PAGE BREAK" not in res.text
+    # Must have CSS page-break class
+    assert "page-break" in res.text

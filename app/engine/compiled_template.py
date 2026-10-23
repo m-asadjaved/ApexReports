@@ -202,8 +202,7 @@ class TemplateCompiler:
             f"  table.report-table {{ width: 100% !important; max-width: 100% !important; table-layout: fixed !important; margin-left: auto !important; margin-right: auto !important; }}\n"
             f"}}\n"
             f"@media screen {{\n"
-            f"  .page-break td {{ border-top: 4px dashed #6366f1 !important; }}\n"
-            f"  .page-break-indicator {{ background: #eef2ff; color: #4f46e5; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 2px; padding: 8px 0; border: 1px dashed #6366f1; border-left: none; border-right: none; }}\n"
+            f"  .page-break td {{ border-top: 2px solid #e2e8f0 !important; }}\n"
             f"}}\n</style>\n</head><body>\n"
             f'<div class="report-container">\n'
             f'<table class="report-table{grid_class}" style="width: 100%;">\n'
@@ -429,12 +428,14 @@ class CompiledRenderer:
         context = data if isinstance(data, dict) else {}
         buf: List[str] = [ast.header_html]
         col_accumulators: Dict[int, float] = {}
+        pending_page_break: List[bool] = [False]
 
         cls._render_elements(
             elements=ast.elements,
             context=context,
             buf=buf,
             col_accumulators=col_accumulators,
+            pending_page_break=pending_page_break,
             is_top_level=True
         )
 
@@ -458,16 +459,19 @@ class CompiledRenderer:
         context: Dict[str, Any],
         buf: List[str],
         col_accumulators: Dict[int, float],
+        pending_page_break: List[bool],
         is_top_level: bool = False
     ) -> None:
         for elem in elements:
             if isinstance(elem, StaticRowElement):
-                cls._render_static_row(elem.row, context, buf, col_accumulators)
+                is_pb = pending_page_break[0]
+                pending_page_break[0] = False
+                cls._render_static_row(elem.row, context, buf, col_accumulators, is_page_break=is_pb)
             elif isinstance(elem, PageBreakElement):
-                buf.append('<tr class="page-break"><td colspan="100" class="page-break-indicator">PAGE BREAK</td></tr>\n')
+                pending_page_break[0] = True
             elif isinstance(elem, IfBlockElement):
                 if evaluator.evaluate_condition(elem.condition, context):
-                    cls._render_elements(elem.children, context, buf, col_accumulators, is_top_level=False)
+                    cls._render_elements(elem.children, context, buf, col_accumulators, pending_page_break, is_top_level=False)
             elif isinstance(elem, EachBlockElement):
                 raw_items = evaluator.evaluate_expression(elem.collection_key, context)
                 if isinstance(raw_items, (list, tuple)):
@@ -496,9 +500,9 @@ class CompiledRenderer:
                     item_ctx["@last"] = (item_idx == len(items) - 1)
 
                     if page_break and item_idx > 0:
-                        buf.append('<tr class="page-break"><td colspan="100" class="page-break-indicator">PAGE BREAK</td></tr>\n')
+                        pending_page_break[0] = True
 
-                    cls._render_elements(elem.children, item_ctx, buf, col_accumulators, is_top_level=False)
+                    cls._render_elements(elem.children, item_ctx, buf, col_accumulators, pending_page_break, is_top_level=False)
 
     @classmethod
     def _render_static_row(
@@ -506,13 +510,25 @@ class CompiledRenderer:
         row: CompiledRow,
         context: Dict[str, Any],
         buf: List[str],
-        col_accumulators: Dict[int, float]
+        col_accumulators: Dict[int, float],
+        is_page_break: bool = False
     ) -> None:
         if row.is_hidden:
             return
 
-        h_style = f' style="height: {row.height_pt}pt;"' if row.height_pt else ""
-        buf.append(f"<tr{h_style}>\n")
+        tr_classes = []
+        tr_styles = []
+
+        if is_page_break:
+            tr_classes.append("page-break")
+            tr_styles.append("page-break-before: always !important; break-before: page !important;")
+
+        if row.height_pt:
+            tr_styles.append(f"height: {row.height_pt}pt;")
+
+        class_attr = f' class="{" ".join(tr_classes)}"' if tr_classes else ""
+        style_attr = f' style="{" ".join(tr_styles)}"' if tr_styles else ""
+        buf.append(f"<tr{class_attr}{style_attr}>\n")
 
         for cell in row.cells:
             if cell.is_skipped:
