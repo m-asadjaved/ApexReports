@@ -20,6 +20,8 @@ from app.renderer.fast_html_renderer import FastHtmlRenderer
 from app.renderer.libreoffice_pool import LibreOfficeRenderer
 from app.renderer.chrome_cdp_pool import ChromeCdpPool
 from app.renderer.pdf_service import PdfService
+from app.engine.template_cache_manager import TemplateCacheManager
+from app.engine.compiled_template import CompiledRenderer
 
 router = APIRouter()
 
@@ -48,7 +50,19 @@ def health_check():
         "cdp_port": ChromeCdpPool.get_port(),
         "libreoffice_available": LibreOfficeRenderer.is_available(),
         "templates_directory": str(settings.TEMPLATES_DIR),
+        "cache": TemplateCacheManager.get_stats(),
     }
+
+@router.get("/cache/stats")
+def get_cache_stats():
+    """Returns diagnostic statistics for the two-tier compiled template cache."""
+    return TemplateCacheManager.get_stats()
+
+@router.post("/cache/invalidate")
+def invalidate_cache(template_code: Optional[str] = None):
+    """Invalidates the compiled template cache for a specific template or all templates."""
+    TemplateCacheManager.invalidate(template_code)
+    return {"status": "success", "message": f"Cache invalidated for {template_code or 'all templates'}"}
 
 @router.get("/templates", response_model=TemplateListResponse)
 def list_templates():
@@ -144,46 +158,63 @@ def render_report(req: RenderRequest):
     # 1. Locate template
     template_path = settings.TEMPLATES_DIR / f"{req.template_code}.xlsx"
     if not template_path.is_file():
-        # Try direct match
         alt_path = settings.TEMPLATES_DIR / req.template_code
         if alt_path.is_file():
             template_path = alt_path
         else:
             raise TemplateNotFoundException(req.template_code)
 
-    # 2. Load workbook preserving formulas
-    try:
-        wb = load_workbook(str(template_path), data_only=False)
-    except Exception as e:
-        raise TemplateSyntaxException(f"Failed to read Excel workbook: {str(e)}")
-
-    # 3. Process template directives & formulas
-    processor = TemplateProcessor(wb)
-    populated_wb = processor.process(req.data)
-
-    # 4. Generate output bytes/string based on format
     filename = req.filename or f"{req.template_code}.{req.format}"
     mime_type = MIME_TYPES.get(req.format, "application/octet-stream")
+    cache_status = "BYPASS"
+    output_bytes: Optional[bytes] = None
 
-    if req.format == "html":
-        content_str = FastHtmlRenderer.render(populated_wb.active, title=filename, font_family=req.font_family)
-        output_bytes = content_str.encode("utf-8")
+    # 2. Fast Compiled Pipeline for HTML & PDF (Two-Tier Cache)
+    if req.compiler == "fast" and req.format in ("html", "pdf"):
+        try:
+            ast, is_hit = TemplateCacheManager.get_or_compile(req.template_code, template_path)
+            cache_status = "HIT" if is_hit else "MISS"
+            content_str = CompiledRenderer.render(
+                ast=ast,
+                data=req.data,
+                title=filename,
+                font_family=req.font_family
+            )
+            if req.format == "html":
+                output_bytes = content_str.encode("utf-8")
+            elif req.format == "pdf":
+                output_bytes = ChromeCdpPool.render_html_to_pdf(content_str)
+        except Exception:
+            # Fall back to legacy full openpyxl pipeline if compiled pipeline encounters an edge case
+            cache_status = "FALLBACK"
+            output_bytes = None
 
-    elif req.format == "xlsx":
-        buf = io.BytesIO()
-        populated_wb.save(buf)
-        buf.seek(0)
-        output_bytes = buf.getvalue()
+    # 3. Full OpenPyXL Workbook Pipeline (for xlsx or fallback or explicit compiler="full")
+    if output_bytes is None:
+        try:
+            wb = load_workbook(str(template_path), data_only=False)
+        except Exception as e:
+            raise TemplateSyntaxException(f"Failed to read Excel workbook: {str(e)}")
 
-    elif req.format == "pdf":
-        output_bytes = PdfService.convert_to_pdf(populated_wb, filename=filename, font_family=req.font_family)
+        processor = TemplateProcessor(wb)
+        populated_wb = processor.process(req.data)
 
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported format '{req.format}'")
+        if req.format == "html":
+            content_str = FastHtmlRenderer.render(populated_wb.active, title=filename, font_family=req.font_family)
+            output_bytes = content_str.encode("utf-8")
+        elif req.format == "xlsx":
+            buf = io.BytesIO()
+            populated_wb.save(buf)
+            buf.seek(0)
+            output_bytes = buf.getvalue()
+        elif req.format == "pdf":
+            output_bytes = PdfService.convert_to_pdf(populated_wb, filename=filename, font_family=req.font_family)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format '{req.format}'")
 
     execution_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
-    # 5. Return based on response_mode
+    # 4. Return based on response_mode
     if req.response_mode == "json":
         b64_data = base64.b64encode(output_bytes).decode("ascii")
         return RenderResponseJson(
@@ -200,7 +231,8 @@ def render_report(req: RenderRequest):
     # Default: binary stream
     headers = {
         "Content-Disposition": f'inline; filename="{filename}"',
-        "X-Execution-Time-Ms": str(execution_time_ms)
+        "X-Execution-Time-Ms": str(execution_time_ms),
+        "X-Template-Cache": cache_status
     }
 
     return Response(

@@ -22,6 +22,10 @@ class RenderRequest(BaseModel):
         None,
         description="Optional custom font family override for the report (e.g. 'Calibri', 'Arial', 'Times New Roman')"
     )
+    compiler: Literal["fast", "full"] = Field(
+        "fast",
+        description="Compilation mode: 'fast' uses the cached compiled HTML template; 'full' executes the legacy OpenPyXL workbook pipeline."
+    )
     data: Dict[str, Any] = Field(
         default_factory=dict, 
         description="The hierarchical JSON dataset passed from Oracle APEX"
