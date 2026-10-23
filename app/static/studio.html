@@ -6,33 +6,15 @@
   <title>ApexReports Studio • Live Sandbox</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%22><text y=%2226%22 font-size=%2226%22>⚡</text></svg>">
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0284c7',
-              600: '#0369a1',
-              700: '#075985',
-            }
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Local Offline Tailwind CSS (Compiled & Zero-Latency) -->
+  <link rel="stylesheet" href="/static/vendor/studio.css">
 
-  <!-- CodeMirror for JSON Editing -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+  <!-- Local Offline CodeMirror for JSON Editing -->
+  <link rel="stylesheet" href="/static/vendor/codemirror.min.css">
+  <link rel="stylesheet" href="/static/vendor/dracula.min.css">
+  <script src="/static/vendor/codemirror.min.js"></script>
+  <script src="/static/vendor/javascript.min.js"></script>
+  <script src="/static/vendor/matchbrackets.min.js"></script>
 
   <style>
     /* Custom Scrollbars */

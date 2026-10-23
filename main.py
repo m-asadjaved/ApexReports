@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.exceptions import ReportEngineException
@@ -50,6 +51,11 @@ async def report_engine_exception_handler(request: Request, exc: ReportEngineExc
             "message": exc.message
         }
     )
+
+# Mount local static files for offline Studio assets
+static_dir = Path(__file__).parent / "app" / "static"
+if static_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Register routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
