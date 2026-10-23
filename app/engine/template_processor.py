@@ -34,6 +34,10 @@ class TemplateProcessor:
         self.pending_formulas: List[Tuple[int, int, str, int, Dict[int, List[int]]]] = []
         # Page break row indices
         self.page_breaks: List[int] = []
+        # Repeating header and footer target rows
+        self.header_target_rows: Set[int] = set()
+        self.footer_target_rows: Set[int] = set()
+        self.current_page: int = 1
 
     def process(self, data: Dict[str, Any]) -> Workbook:
         """Processes the template using provided data dictionary and returns populated Workbook."""
@@ -62,6 +66,25 @@ class TemplateProcessor:
         self._copy_merged_cells()
         self._update_target_print_area(total_emitted - 1)
         self._update_target_conditional_formatting(total_emitted - 1)
+
+        # Attach header/footer metadata to target sheet for downstream HTML renderers
+        self.target_sheet._header_rows = set(self.header_target_rows)
+        self.target_sheet._footer_rows = set(self.footer_target_rows)
+
+        # Post-resolve @pages / total_pages across emitted cells
+        total_pages = len(self.page_breaks) + 1
+        max_c = self.target_sheet.max_column or 1
+        for r in range(1, total_emitted):
+            for c in range(1, max_c + 1):
+                cell = self.target_sheet.cell(row=r, column=c)
+                if cell.value and isinstance(cell.value, str):
+                    if "{{@pages}}" in cell.value or "{{total_pages}}" in cell.value or "{{@total_pages}}" in cell.value:
+                        cell.value = (
+                            cell.value
+                            .replace("{{@pages}}", str(total_pages))
+                            .replace("{{total_pages}}", str(total_pages))
+                            .replace("{{@total_pages}}", str(total_pages))
+                        )
 
         return self.target_wb
 
@@ -255,6 +278,7 @@ class TemplateProcessor:
 
                     if page_break and item_idx > 0:
                         self.page_breaks.append(target_r - 1)
+                        self.current_page += 1
 
                     target_r = self._execute_block(
                         rows=rows,
@@ -283,12 +307,46 @@ class TemplateProcessor:
                 i = close_idx + 1
                 continue
 
+            elif directive and directive["type"] == "header_start":
+                close_idx = self._find_matching_close(rows, i + 1, end_idx, "header_start", "header_end")
+                start_target_r = target_r
+                target_r = self._execute_block(
+                    rows=rows,
+                    start_idx=i + 1,
+                    end_idx=close_idx,
+                    context=context,
+                    target_row_start=target_r
+                )
+                for hr in range(start_target_r, target_r):
+                    self.header_target_rows.add(hr)
+                if self.header_target_rows:
+                    min_h, max_h = min(self.header_target_rows), max(self.header_target_rows)
+                    self.target_sheet.print_title_rows = f"${min_h}:${max_h}"
+                i = close_idx + 1
+                continue
+
+            elif directive and directive["type"] == "footer_start":
+                close_idx = self._find_matching_close(rows, i + 1, end_idx, "footer_start", "footer_end")
+                start_target_r = target_r
+                target_r = self._execute_block(
+                    rows=rows,
+                    start_idx=i + 1,
+                    end_idx=close_idx,
+                    context=context,
+                    target_row_start=target_r
+                )
+                for fr in range(start_target_r, target_r):
+                    self.footer_target_rows.add(fr)
+                i = close_idx + 1
+                continue
+
             elif directive and directive["type"] == "page_break":
                 self.page_breaks.append(target_r - 1)
+                self.current_page += 1
                 i += 1
                 continue
 
-            elif directive and directive["type"] in ("each_end", "if_end"):
+            elif directive and directive["type"] in ("each_end", "if_end", "header_end", "footer_end"):
                 i += 1
                 continue
 
@@ -332,7 +390,19 @@ class TemplateProcessor:
             if val == "{{/if}}":
                 return {"type": "if_end"}
 
-            if val == "{{#page-break}}":
+            if val in ("{{#page-header}}", "{{#header}}"):
+                return {"type": "header_start"}
+
+            if val in ("{{/page-header}}", "{{/header}}"):
+                return {"type": "header_end"}
+
+            if val in ("{{#page-footer}}", "{{#footer}}"):
+                return {"type": "footer_start"}
+
+            if val in ("{{/page-footer}}", "{{/footer}}"):
+                return {"type": "footer_end"}
+
+            if val in ("{{#page-break}}", "{{page_break}}", "{{page-break}}"):
                 return {"type": "page_break"}
 
         return None
@@ -375,6 +445,18 @@ class TemplateProcessor:
         # Snapshot recent mapping for this row
         scoped_mapping = {k: list(v) for k, v in self.recent_row_mapping.items()}
 
+        import datetime
+        sys_context = {
+            "@page": self.current_page,
+            "page_no": self.current_page,
+            "@date": datetime.date.today().strftime("%Y-%m-%d"),
+            "current_date": datetime.date.today().strftime("%Y-%m-%d"),
+            "@time": datetime.datetime.now().strftime("%H:%M:%S"),
+            "current_time": datetime.datetime.now().strftime("%H:%M:%S"),
+            "@timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        effective_context = {**sys_context, **context}
+
         for col_idx, src_cell in enumerate(src_cells, start=1):
             dst_cell = self.target_sheet.cell(row=target_row_num, column=col_idx)
             copy_cell_style(src_cell, dst_cell)
@@ -391,11 +473,11 @@ class TemplateProcessor:
                 continue
 
             val_clean = val_str.lstrip("~'").strip()
-            if val_clean.startswith("{{@"):
-                self._handle_media_tag(val_clean, dst_cell, target_row_num, col_idx, context)
+            if val_clean.startswith(("{{@image", "{{@barcode", "{{@qrcode", "{{@qr")):
+                self._handle_media_tag(val_clean, dst_cell, target_row_num, col_idx, effective_context)
                 continue
 
-            dst_cell.value = render_cell_value(raw_val, context)
+            dst_cell.value = render_cell_value(raw_val, effective_context)
 
     def _handle_media_tag(
         self, 

@@ -30,8 +30,8 @@ def render_cell_value(val: Any, context: Dict[str, Any]) -> Any:
     m_exact = TAG_REGEX.fullmatch(val_str)
     if m_exact:
         tag_content = m_exact.group(1).strip()
-        # Direct directives should not be rendered here
-        if tag_content.startswith(("#", "/", "@")):
+        # Direct directives (blocks and media) should not be rendered here
+        if tag_content.startswith(("#", "/")) or tag_content.startswith(("@image", "@barcode", "@qrcode", "@qr")):
             return val
         evaluated = evaluator.evaluate_expression(tag_content, context)
         return evaluated if evaluated is not None else ""
@@ -39,7 +39,7 @@ def render_cell_value(val: Any, context: Dict[str, Any]) -> Any:
     # Embedded tokens in text: e.g. 'Customer: {{cust.name}} (ID: {{cust.id}})'
     def token_replace(m):
         tag = m.group(1).strip()
-        if tag.startswith(("#", "/", "@")):
+        if tag.startswith(("#", "/")) or tag.startswith(("@image", "@barcode", "@qrcode", "@qr")):
             return m.group(0)
         res = evaluator.evaluate_expression(tag, context)
         return str(res) if res is not None else ""

@@ -192,6 +192,50 @@ class TemplateLinter:
                         "row": cell.row
                     })
 
+        # Page Headers
+        elif tag in ("#page-header", "#header"):
+            block_stack.append({"kind": "header", "target": tag, "cell": cell.coordinate, "row": cell.row})
+
+        elif tag in ("/page-header", "/header"):
+            if not block_stack:
+                errors.append({
+                    "code": "UNMATCHED_CLOSE_HEADER",
+                    "message": f"Unexpected '{{{{{tag}}}}}' at {cell.coordinate} without a matching header open tag.",
+                    "cell": cell.coordinate,
+                    "row": cell.row
+                })
+            else:
+                top = block_stack.pop()
+                if top["kind"] != "header":
+                    errors.append({
+                        "code": "MISMATCHED_BLOCK_CLOSE",
+                        "message": f"Mismatched closing tag '{{{{{tag}}}}}' at {cell.coordinate}. Expected '{{{{/{top['kind']}}}}}'.",
+                        "cell": cell.coordinate,
+                        "row": cell.row
+                    })
+
+        # Page Footers
+        elif tag in ("#page-footer", "#footer"):
+            block_stack.append({"kind": "footer", "target": tag, "cell": cell.coordinate, "row": cell.row})
+
+        elif tag in ("/page-footer", "/footer"):
+            if not block_stack:
+                errors.append({
+                    "code": "UNMATCHED_CLOSE_FOOTER",
+                    "message": f"Unexpected '{{{{{tag}}}}}' at {cell.coordinate} without a matching footer open tag.",
+                    "cell": cell.coordinate,
+                    "row": cell.row
+                })
+            else:
+                top = block_stack.pop()
+                if top["kind"] != "footer":
+                    errors.append({
+                        "code": "MISMATCHED_BLOCK_CLOSE",
+                        "message": f"Mismatched closing tag '{{{{{tag}}}}}' at {cell.coordinate}. Expected '{{{{/{top['kind']}}}}}'.",
+                        "cell": cell.coordinate,
+                        "row": cell.row
+                    })
+
         # Media Tags (@qr, @barcode, @image)
         elif tag.startswith("@qr") or tag.startswith("@barcode") or tag.startswith("@image"):
             parts = tag.split()
@@ -303,6 +347,10 @@ class TemplateLinter:
                 continue
 
             clean_key = var_name.split(".")[0]
+            if clean_key.startswith("@") or clean_key in ("page_no", "total_pages", "current_date", "current_time", "current_timestamp"):
+                found_count += 1
+                continue
+
             val = cls._find_key_recursive(data, clean_key)
             if val is None:
                 missing_count += 1

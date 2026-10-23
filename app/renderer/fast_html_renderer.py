@@ -421,9 +421,18 @@ class FastHtmlRenderer:
             '  .page-break { page-break-before: always !important; break-before: page !important; }',
             '  table.report-table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; margin-left: auto !important; margin-right: auto !important; }',
             '}',
+            'thead { display: table-header-group; }',
+            'tfoot { display: table-footer-group; }',
+            'tr { break-inside: avoid; page-break-inside: avoid; }',
             '@media screen {',
             '  .page-break td { border-top: 4px dashed #6366f1 !important; }',
             '  .page-break-indicator { background: #eef2ff; color: #4f46e5; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 2px; padding: 8px 0; border: 1px dashed #6366f1; border-left: none; border-right: none; }',
+            '  .print-page-num, .print-total-pages { display: none !important; }',
+            '}',
+            '@media print {',
+            '  .screen-page-num, .screen-total-pages { display: none !important; }',
+            '  .print-page-num::after { content: counter(page); }',
+            '  .print-total-pages::after { content: counter(pages); }',
             '}',
             '</style>',
             '</head><body>',
@@ -434,8 +443,37 @@ class FastHtmlRenderer:
             '</colgroup>'
         ]
 
+        # 5. Classify header, footer, and body rows
+        header_rows: Set[int] = set()
+        footer_rows: Set[int] = set()
+
+        if hasattr(ws, "_header_rows") and ws._header_rows:
+            header_rows.update(ws._header_rows)
+        elif ws.print_title_rows:
+            try:
+                clean_pt = str(ws.print_title_rows).replace("$", "").strip()
+                pt_parts = clean_pt.split(":")
+                if len(pt_parts) == 2:
+                    h_start, h_end = int(pt_parts[0]), int(pt_parts[1])
+                    header_rows.update(range(h_start, h_end + 1))
+            except Exception:
+                pass
+
+        if hasattr(ws, "_footer_rows") and ws._footer_rows:
+            footer_rows.update(ws._footer_rows)
+
+        total_logical_pages = len(page_break_rows) + 1
+        current_logical_page = 1
+
+        head_html: List[str] = []
+        body_html: List[str] = []
+        foot_html: List[str] = []
+
         for r in range(min_row, max_row + 1):
             is_pb = (r in page_break_rows)
+            if is_pb:
+                current_logical_page += 1
+
             r_height, r_hidden = cls._get_row_dimension(ws, r)
 
             tr_styles = []
@@ -453,7 +491,7 @@ class FastHtmlRenderer:
             class_attr = f' class="{" ".join(tr_classes)}"' if tr_classes else ""
             style_attr = f' style="{"; ".join(tr_styles)}"' if tr_styles else ""
 
-            html_out.append(f'<tr{class_attr}{style_attr}>')
+            row_buf = [f'<tr{class_attr}{style_attr}>']
 
             for c in range(min_col, max_col + 1):
                 if (r, c) in skip_cells:
@@ -600,9 +638,38 @@ class FastHtmlRenderer:
                 else:
                     content_html = html.escape(formatted_val).replace("\n", "<br/>")
 
-                html_out.append(f'<td{span_attrs}{style_attr}>{content_html}</td>')
+                # Dynamic page numbering counters
+                if "{{" in content_html:
+                    page_span = f'<span class="report-page-num"><span class="print-page-num"></span><span class="screen-page-num">{current_logical_page}</span></span>'
+                    total_span = f'<span class="report-total-pages"><span class="print-total-pages"></span><span class="screen-total-pages">{total_logical_pages}</span></span>'
+                    content_html = re.sub(r"\{\{(@page|page_no|@page_no|_page)\}\}", page_span, content_html)
+                    content_html = re.sub(r"\{\{(@pages|total_pages|@total_pages|_pages)\}\}", total_span, content_html)
 
-            html_out.append('</tr>')
+                row_buf.append(f'<td{span_attrs}{style_attr}>{content_html}</td>')
+
+            row_buf.append('</tr>')
+            row_str = "\n".join(row_buf)
+
+            if r in header_rows:
+                head_html.append(row_str)
+            elif r in footer_rows:
+                foot_html.append(row_str)
+            else:
+                body_html.append(row_str)
+
+        if head_html:
+            html_out.append('<thead>')
+            html_out.extend(head_html)
+            html_out.append('</thead>')
+
+        html_out.append('<tbody>')
+        html_out.extend(body_html)
+        html_out.append('</tbody>')
+
+        if foot_html:
+            html_out.append('<tfoot>')
+            html_out.extend(foot_html)
+            html_out.append('</tfoot>')
 
         html_out.append('</table>')
         html_out.append('</div>')

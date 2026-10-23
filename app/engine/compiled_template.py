@@ -76,6 +76,8 @@ class CompiledTemplateAST:
     elements: List[CompiledElement]
     column_count: int
     default_font: str = "Calibri"
+    header_elements: List[CompiledElement] = field(default_factory=list)
+    footer_elements: List[CompiledElement] = field(default_factory=list)
 
 
 class TemplateCompiler:
@@ -201,8 +203,17 @@ class TemplateCompiler:
             f"  .page-break {{ page-break-before: always !important; break-before: page !important; }}\n"
             f"  table.report-table {{ width: 100% !important; max-width: 100% !important; table-layout: fixed !important; margin-left: auto !important; margin-right: auto !important; }}\n"
             f"}}\n"
+            f"thead {{ display: table-header-group; }}\n"
+            f"tfoot {{ display: table-footer-group; }}\n"
+            f"tr {{ break-inside: avoid; page-break-inside: avoid; }}\n"
             f"@media screen {{\n"
             f"  .page-break td {{ border-top: 2px solid #e2e8f0 !important; }}\n"
+            f"  .print-page-num, .print-total-pages {{ display: none !important; }}\n"
+            f"}}\n"
+            f"@media print {{\n"
+            f"  .screen-page-num, .screen-total-pages {{ display: none !important; }}\n"
+            f"  .print-page-num::after {{ content: counter(page); }}\n"
+            f"  .print-total-pages::after {{ content: counter(pages); }}\n"
             f"}}\n</style>\n</head><body>\n"
             f'<div class="report-container">\n'
             f'<table class="report-table{grid_class}" style="width: 100%;">\n'
@@ -311,7 +322,7 @@ class TemplateCompiler:
                 if raw_val is not None:
                     val_s = str(raw_val).strip()
                     cand = val_s.lstrip("~'").strip()
-                    if cand.startswith("{{@"):
+                    if cand.startswith(("{{@image", "{{@barcode", "{{@qrcode", "{{@qr")):
                         val_type = "media"
                     elif val_s.startswith("="):
                         val_type = "formula"
@@ -355,8 +366,48 @@ class TemplateCompiler:
                 raw_directive=directive
             ))
 
-        # 4. Group rows into hierarchical AST
-        ast_elements = cls._build_elements_tree(all_rows, 0, len(all_rows))
+        # 4. Group rows into header, footer, and body elements
+        header_elements: List[CompiledElement] = []
+        footer_elements: List[CompiledElement] = []
+        body_rows: List[CompiledRow] = []
+
+        has_header_block = any(r.raw_directive and r.raw_directive["type"] == "header_start" for r in all_rows)
+        pt_header_range = None
+        if not has_header_block and getattr(ws, "print_title_rows", None):
+            try:
+                clean_pt = str(ws.print_title_rows).replace("$", "").strip()
+                pt_parts = clean_pt.split(":")
+                if len(pt_parts) == 2:
+                    pt_header_range = (int(pt_parts[0]), int(pt_parts[1]))
+            except Exception:
+                pass
+
+        i = 0
+        while i < len(all_rows):
+            r = all_rows[i]
+            d = r.raw_directive
+            if d and d["type"] == "header_start":
+                close_idx = cls._find_close(all_rows, i + 1, len(all_rows), "header_start", "header_end")
+                header_elements.extend(cls._build_elements_tree(all_rows, i + 1, close_idx))
+                i = close_idx + 1
+                continue
+            elif d and d["type"] == "footer_start":
+                close_idx = cls._find_close(all_rows, i + 1, len(all_rows), "footer_start", "footer_end")
+                footer_elements.extend(cls._build_elements_tree(all_rows, i + 1, close_idx))
+                i = close_idx + 1
+                continue
+            elif pt_header_range and pt_header_range[0] <= r.row_num <= pt_header_range[1]:
+                header_elements.append(StaticRowElement(row=r))
+                i += 1
+                continue
+            elif d and d["type"] in ("header_end", "footer_end"):
+                i += 1
+                continue
+            else:
+                body_rows.append(r)
+                i += 1
+
+        ast_elements = cls._build_elements_tree(body_rows, 0, len(body_rows))
 
         return CompiledTemplateAST(
             template_code=template_code,
@@ -365,7 +416,9 @@ class TemplateCompiler:
             footer_html=footer_html,
             elements=ast_elements,
             column_count=max_col - min_col + 1,
-            default_font=detected_font
+            default_font=detected_font,
+            header_elements=header_elements,
+            footer_elements=footer_elements
         )
 
     @classmethod
@@ -393,7 +446,19 @@ class TemplateCompiler:
             if val == "{{/if}}":
                 return {"type": "if_end"}
 
-            if val == "{{#page-break}}":
+            if val in ("{{#page-header}}", "{{#header}}"):
+                return {"type": "header_start"}
+
+            if val in ("{{/page-header}}", "{{/header}}"):
+                return {"type": "header_end"}
+
+            if val in ("{{#page-footer}}", "{{#footer}}"):
+                return {"type": "footer_start"}
+
+            if val in ("{{/page-footer}}", "{{/footer}}"):
+                return {"type": "footer_end"}
+
+            if val in ("{{#page-break}}", "{{page_break}}", "{{page-break}}"):
                 return {"type": "page_break"}
         return None
 
@@ -462,11 +527,31 @@ class CompiledRenderer:
         title: str = "Report",
         font_family: Optional[str] = None
     ) -> str:
-        context = data if isinstance(data, dict) else {}
+        import datetime
+        sys_context = {
+            "@page": 1,
+            "page_no": 1,
+            "@pages": 1,
+            "total_pages": 1,
+            "@date": datetime.date.today().strftime("%Y-%m-%d"),
+            "current_date": datetime.date.today().strftime("%Y-%m-%d"),
+            "@time": datetime.datetime.now().strftime("%H:%M:%S"),
+            "current_time": datetime.datetime.now().strftime("%H:%M:%S"),
+            "@timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        context = {**sys_context, **(data if isinstance(data, dict) else {})}
         buf: List[str] = [ast.header_html]
         col_accumulators: Dict[int, float] = {}
         pending_page_break: List[bool] = [False]
 
+        # 1. thead
+        if getattr(ast, "header_elements", None):
+            buf.append("<thead>\n")
+            cls._render_elements(ast.header_elements, context, buf, col_accumulators, pending_page_break, is_top_level=True)
+            buf.append("</thead>\n")
+
+        # 2. tbody
+        buf.append("<tbody>\n")
         cls._render_elements(
             elements=ast.elements,
             context=context,
@@ -475,6 +560,13 @@ class CompiledRenderer:
             pending_page_break=pending_page_break,
             is_top_level=True
         )
+        buf.append("</tbody>\n")
+
+        # 3. tfoot
+        if getattr(ast, "footer_elements", None):
+            buf.append("<tfoot>\n")
+            cls._render_elements(ast.footer_elements, context, buf, col_accumulators, pending_page_break, is_top_level=True)
+            buf.append("</tfoot>\n")
 
         buf.append(ast.footer_html)
         result_html = "".join(buf)
@@ -559,6 +651,8 @@ class CompiledRenderer:
         if is_page_break:
             tr_classes.append("page-break")
             tr_styles.append("page-break-before: always !important; break-before: page !important;")
+            context["@page"] = context.get("@page", 1) + 1
+            context["page_no"] = context["@page"]
 
         if row.height_pt:
             tr_styles.append(f"height: {row.height_pt}pt;")
@@ -617,15 +711,29 @@ class CompiledRenderer:
 
         # 3. Variable placeholder
         if cell.val_type == "var":
-            rendered = render_cell_value(cell.raw_val, context)
+            raw_s = str(cell.raw_val)
+            cur_p = context.get("@page", context.get("page_no", 1))
+            tot_p = context.get("@pages", context.get("total_pages", 1))
+            page_span = f'<span class="report-page-num"><span class="print-page-num"></span><span class="screen-page-num">{cur_p}</span></span>'
+            total_span = f'<span class="report-total-pages"><span class="print-total-pages"></span><span class="screen-total-pages">{tot_p}</span></span>'
+
+            # Replace dynamic page counter tags with dual print/screen spans
+            has_page_tags = any(k in raw_s for k in ("@page", "page_no", "@pages", "total_pages"))
+            if has_page_tags:
+                raw_s = re.sub(r"\{\{(@page|page_no|@page_no|_page)\}\}", page_span, raw_s)
+                raw_s = re.sub(r"\{\{(@pages|total_pages|@total_pages|_pages)\}\}", total_span, raw_s)
+
+            rendered = render_cell_value(raw_s, context)
             if rendered is not None and rendered != "":
-                # Try tracking numeric value into column accumulator if applicable
+                rendered_s = str(rendered)
+                if "<span class=" in rendered_s:
+                    return rendered_s.replace("\n", "<br/>")
                 try:
                     num_val = float(rendered)
                     col_accumulators[cell.col_idx] = col_accumulators.get(cell.col_idx, 0.0) + num_val
                 except (ValueError, TypeError):
                     pass
-                return html.escape(str(rendered))
+                return html.escape(rendered_s).replace("\n", "<br/>")
             return ""
 
         # 4. Static value

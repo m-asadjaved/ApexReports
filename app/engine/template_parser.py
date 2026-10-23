@@ -33,6 +33,38 @@ class ExpressionEvaluator:
         if expr in context:
             return context[expr]
 
+        # 2b. System variable resolution (@page, @pages, @date, @time, page_no, total_pages, etc.)
+        sys_aliases = {
+            "@page": ["@page", "page_no", "_page"],
+            "@pages": ["@pages", "total_pages", "_pages"],
+            "@date": ["@date", "current_date", "_date"],
+            "@time": ["@time", "current_time", "_time"],
+            "@timestamp": ["@timestamp", "current_timestamp"],
+            "page_no": ["@page", "page_no", "_page"],
+            "total_pages": ["@pages", "total_pages", "_pages"],
+            "current_date": ["@date", "current_date", "_date"],
+            "current_time": ["@time", "current_time", "_time"],
+        }
+        if expr in sys_aliases:
+            for alias in sys_aliases[expr]:
+                if alias in context:
+                    return context[alias]
+            import datetime
+            if expr in ("@date", "current_date", "_date"):
+                return datetime.date.today().strftime("%Y-%m-%d")
+            if expr in ("@time", "current_time", "_time"):
+                return datetime.datetime.now().strftime("%H:%M:%S")
+            if expr in ("@timestamp", "current_timestamp"):
+                return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if expr in ("@page", "page_no", "_page"):
+                return 1
+            if expr in ("@pages", "total_pages", "_pages"):
+                return 1
+
+        # Direct @ identifier lookup (e.g. @index, @first, @last)
+        if expr.startswith("@") and expr in context:
+            return context[expr]
+
         # 3. Handle simple dotted access like a.b.c
         if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$", expr):
             curr = context
