@@ -24,6 +24,10 @@ class FastHtmlRenderer:
         "hair": "1px dotted",
         "dashDot": "1px dashed",
         "mediumDashed": "2px dashed",
+        "mediumDashDot": "2px dashed",
+        "dashDotDot": "1px dashed",
+        "mediumDashDotDot": "2px dashed",
+        "slantDashDot": "2px dashed",
     }
 
     FONT_FALLBACK_MAP = {
@@ -48,7 +52,7 @@ class FastHtmlRenderer:
         if not side or not getattr(side, "style", None) or side.style == "none":
             return None
         css_style = cls.BORDER_STYLE_MAP.get(side.style, "1px solid")
-        color = ExcelColorResolver.resolve_color(getattr(side, "color", None), theme_colors, default="#cbd5e1")
+        color = ExcelColorResolver.resolve_color(getattr(side, "color", None), theme_colors, default="#000000")
         return f"{css_style} {color}"
 
     @classmethod

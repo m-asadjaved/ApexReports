@@ -124,6 +124,12 @@ class ExcelColorResolver:
                 return "#" + (clean_str[2:] if len(clean_str) == 8 else clean_str)
             return default
 
+        # Automatic / Default Color (OpenXML ECMA-376 index 64 = auto black, index 65 = auto white)
+        if getattr(color_obj, "auto", None) is True or getattr(color_obj, "indexed", None) == 64:
+            return "#000000"
+        if getattr(color_obj, "indexed", None) == 65:
+            return "#FFFFFF"
+
         themes = theme_colors or cls.DEFAULT_THEME_COLORS
         tint = getattr(color_obj, "tint", 0.0) or 0.0
 

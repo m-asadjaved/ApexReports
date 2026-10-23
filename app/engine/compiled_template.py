@@ -17,7 +17,7 @@ from app.engine.cell_utils import render_cell_value
 from app.engine.media_handler import MediaHandler
 from app.renderer.color_resolver import ExcelColorResolver
 from app.renderer.fast_html_renderer import FastHtmlRenderer
-from app.engine.formula_evaluator import CELL_COORD_REGEX
+from app.engine.formula_evaluator import FormulaEvaluator, CELL_COORD_REGEX
 
 evaluator = ExpressionEvaluator()
 
@@ -389,11 +389,17 @@ class TemplateCompiler:
             d = r.raw_directive
             if d and d["type"] == "header_start":
                 close_idx = cls._find_close(all_rows, i + 1, len(all_rows), "header_start", "header_end")
+                if close_idx > i + 1 and close_idx < len(all_rows):
+                    cls._transfer_directive_borders(all_rows[close_idx], all_rows[close_idx - 1], from_side="bottom", to_side="bottom")
                 header_elements.extend(cls._build_elements_tree(all_rows, i + 1, close_idx))
                 i = close_idx + 1
                 continue
             elif d and d["type"] == "footer_start":
                 close_idx = cls._find_close(all_rows, i + 1, len(all_rows), "footer_start", "footer_end")
+                if close_idx > i + 1:
+                    cls._transfer_directive_borders(r, all_rows[i + 1], from_side="bottom", to_side="top")
+                    if close_idx < len(all_rows):
+                        cls._transfer_directive_borders(all_rows[close_idx], all_rows[close_idx - 1], from_side="top", to_side="bottom")
                 footer_elements.extend(cls._build_elements_tree(all_rows, i + 1, close_idx))
                 i = close_idx + 1
                 continue
@@ -421,6 +427,28 @@ class TemplateCompiler:
             header_elements=header_elements,
             footer_elements=footer_elements
         )
+
+    @classmethod
+    def _transfer_directive_borders(
+        cls,
+        src_row: CompiledRow,
+        dst_row: CompiledRow,
+        from_side: str = "bottom",
+        to_side: str = "top"
+    ) -> None:
+        """Transfers borders from a directive row to an adjacent content row if target doesn't already have one."""
+        pattern = re.compile(rf"border-{from_side}:\s*([^;]+);")
+        for src_cell in src_row.cells:
+            m = pattern.search(src_cell.style_str)
+            if not m:
+                continue
+            border_val = m.group(1).strip()
+            # Find destination cell that covers this column
+            for dst_cell in dst_row.cells:
+                if dst_cell.col_idx <= src_cell.col_idx < dst_cell.col_idx + dst_cell.colspan:
+                    if f"border-{to_side}:" not in dst_cell.style_str:
+                        dst_cell.style_str = (dst_cell.style_str + f" border-{to_side}: {border_val};").strip()
+                    break
 
     @classmethod
     def _detect_row_directive(cls, cells: List[CompiledCell]) -> Optional[Dict[str, Any]]:
@@ -473,6 +501,10 @@ class TemplateCompiler:
             if d:
                 if d["type"] == "each_start":
                     close_idx = cls._find_close(rows, i + 1, end_idx, "each_start", "each_end")
+                    if close_idx > i + 1:
+                        cls._transfer_directive_borders(row, rows[i + 1], from_side="bottom", to_side="top")
+                        if close_idx < len(rows):
+                            cls._transfer_directive_borders(rows[close_idx], rows[close_idx - 1], from_side="top", to_side="bottom")
                     children = cls._build_elements_tree(rows, i + 1, close_idx)
                     elements.append(EachBlockElement(
                         collection_key=d["key"],
@@ -781,6 +813,8 @@ class CompiledRenderer:
                     pass
                 if "<span class=" in rendered_s:
                     return (rendered_s.replace("\n", "<br/>"), num_val)
+                if num_val is not None:
+                    return (cls._format_num(num_val, cell.num_format), num_val)
                 return (html.escape(rendered_s).replace("\n", "<br/>"), num_val)
             return ("", None)
 
@@ -848,21 +882,7 @@ class CompiledRenderer:
     def _format_num(cls, val: Any, fmt: Optional[str]) -> str:
         if val is None or val == "":
             return ""
-        try:
-            num = float(val)
-        except (ValueError, TypeError):
-            return html.escape(str(val))
-
-        if fmt:
-            if "$" in fmt:
-                return f"${num:,.2f}"
-            elif "%" in fmt:
-                return f"{num * 100:.1f}%"
-            elif "#,##0.00" in fmt:
-                return f"{num:,.2f}"
-            elif "#,##0" in fmt:
-                return f"{int(round(num)):,}"
-        return f"{num:g}"
+        return FormulaEvaluator.format_cell_value(val, fmt)
 
     @classmethod
     def _render_media(cls, tag_str: str, context: Dict[str, Any]) -> str:

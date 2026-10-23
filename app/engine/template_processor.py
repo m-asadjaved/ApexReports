@@ -1,9 +1,11 @@
 import io
 import re
+from copy import copy
 from typing import Any, Dict, List, Optional, Tuple, Set
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.pagebreak import Break
+from openpyxl.styles import Border
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.cell import range_boundaries
 
@@ -276,6 +278,7 @@ class TemplateProcessor:
                 for r_idx in range(i + 1, close_idx):
                     self.recent_row_mapping[r_idx + 1] = []
 
+                start_each_target_r = target_r
                 for item_idx, item in enumerate(items):
                     item_context = {**context, **item} if isinstance(item, dict) else {**context, "item": item, "this": item}
                     item_context["@index"] = item_idx
@@ -293,6 +296,11 @@ class TemplateProcessor:
                         context=item_context,
                         target_row_start=target_r
                     )
+
+                if start_each_target_r < target_r:
+                    self._transfer_directive_borders(rows[i], start_each_target_r, from_side="bottom", to_side="top")
+                    if close_idx < len(rows):
+                        self._transfer_directive_borders(rows[close_idx], target_r - 1, from_side="top", to_side="bottom")
 
                 i = close_idx + 1
                 continue
@@ -328,6 +336,10 @@ class TemplateProcessor:
                 if self.header_target_rows:
                     min_h, max_h = min(self.header_target_rows), max(self.header_target_rows)
                     self.target_sheet.print_title_rows = f"${min_h}:${max_h}"
+
+                if start_target_r < target_r and close_idx < len(rows):
+                    self._transfer_directive_borders(rows[close_idx], target_r - 1, from_side="bottom", to_side="bottom")
+
                 i = close_idx + 1
                 continue
 
@@ -343,6 +355,12 @@ class TemplateProcessor:
                 )
                 for fr in range(start_target_r, target_r):
                     self.footer_target_rows.add(fr)
+
+                if start_target_r < target_r:
+                    self._transfer_directive_borders(rows[i], start_target_r, from_side="bottom", to_side="top")
+                    if close_idx < len(rows):
+                        self._transfer_directive_borders(rows[close_idx], target_r - 1, from_side="top", to_side="bottom")
+
                 i = close_idx + 1
                 continue
 
@@ -432,6 +450,26 @@ class TemplateProcessor:
                     if depth == 0:
                         return idx
         raise TemplateSyntaxException(f"Unclosed '{open_type}' block starting around line {start}")
+
+    def _transfer_directive_borders(
+        self,
+        src_row_tuple: Tuple,
+        target_row_num: int,
+        from_side: str = "bottom",
+        to_side: str = "top"
+    ) -> None:
+        """Transfers borders from a stripped directive row in src_sheet to an emitted row in target_sheet."""
+        for src_cell in src_row_tuple:
+            if src_cell.border:
+                src_side = getattr(src_cell.border, from_side, None)
+                if src_side and getattr(src_side, "style", None):
+                    dst_cell = self.target_sheet.cell(row=target_row_num, column=src_cell.column)
+                    curr_b = dst_cell.border or Border()
+                    curr_side = getattr(curr_b, to_side, None)
+                    if not curr_side or not getattr(curr_side, "style", None):
+                        new_b = copy(curr_b)
+                        setattr(new_b, to_side, copy(src_side))
+                        dst_cell.border = new_b
 
     def _emit_row(
         self, 

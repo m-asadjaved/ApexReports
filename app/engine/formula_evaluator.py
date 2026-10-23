@@ -286,7 +286,7 @@ class FormulaEvaluator:
     @classmethod
     def format_cell_value(cls, val: Any, number_format: Optional[str]) -> str:
         """Formats a numeric value using Excel's number format mask."""
-        if val is None:
+        if val is None or val == "":
             return ""
 
         if not isinstance(val, (int, float)):
@@ -298,6 +298,8 @@ class FormulaEvaluator:
                     val = f_val
             except (ValueError, TypeError):
                 return str(val)
+        elif isinstance(val, float) and val.is_integer():
+            val = int(val)
 
         if not number_format or number_format.lower() in ("general", ""):
             if isinstance(val, float):
@@ -309,8 +311,8 @@ class FormulaEvaluator:
         # Currency
         if "$" in nf:
             if ".00" in nf:
-                return f"${val:,.2f}"
-            return f"${int(round(val)):,}"
+                return f"${val:,.2f}" if val >= 0 else f"-${abs(val):,.2f}"
+            return f"${int(round(val)):,}" if val >= 0 else f"-${abs(int(round(val))):,}"
 
         # Percentage
         if "%" in nf:

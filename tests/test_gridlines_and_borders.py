@@ -39,3 +39,47 @@ def test_print_options_gridlines_enabled():
     
     html_output = FastHtmlRenderer.render(ws)
     assert 'class="report-table show-gridlines"' in html_output
+
+def test_auto_border_color_and_directive_footer_border_inheritance():
+    from app.engine.template_processor import TemplateProcessor
+    from app.engine.compiled_template import TemplateCompiler, CompiledRenderer
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    
+    # Header row
+    ws["A1"] = "Item"
+    ws["B1"] = "Amount"
+    
+    # Body row
+    ws["A2"] = "{{#each items}}"
+    ws["A3"] = "{{name}}"
+    ws["B3"] = "{{amount}}"
+    ws["B3"].number_format = "#,##0"
+    ws["A4"] = "{{/each}}"
+    
+    # Footer with border placed on footer_start directive row
+    ws["A5"] = "{{#page-footer}}"
+    thick_side = Side(style="thick")  # auto color (no explicit color)
+    ws["A5"].border = Border(bottom=thick_side)
+    ws["B5"].border = Border(bottom=thick_side)
+    ws["A6"] = "Total Footer"
+    ws["A7"] = "{{/page-footer}}"
+    
+    data = {"items": [{"name": "Widget", "amount": 1000}]}
+    
+    # 1. Full processor mode
+    proc = TemplateProcessor(wb)
+    out_wb = proc.process(data)
+    full_html = FastHtmlRenderer.render(out_wb.active)
+    
+    assert "border-top: 3px solid #000000" in full_html
+    assert "1,000" in full_html
+    
+    # 2. Fast compiled mode
+    ast = TemplateCompiler.compile(wb, "TEST_BORDER_INHERIT")
+    fast_html = CompiledRenderer.render(ast, data)
+    
+    assert "border-top: 3px solid #000000" in fast_html
+    assert "1,000" in fast_html
+
