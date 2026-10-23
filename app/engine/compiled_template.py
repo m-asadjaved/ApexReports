@@ -17,6 +17,7 @@ from app.engine.cell_utils import render_cell_value
 from app.engine.media_handler import MediaHandler
 from app.renderer.color_resolver import ExcelColorResolver
 from app.renderer.fast_html_renderer import FastHtmlRenderer
+from app.engine.formula_evaluator import CELL_COORD_REGEX
 
 evaluator = ExpressionEvaluator()
 
@@ -543,11 +544,15 @@ class CompiledRenderer:
         buf: List[str] = [ast.header_html]
         col_accumulators: Dict[int, float] = {}
         pending_page_break: List[bool] = [False]
+        row_history: Dict[str, Any] = {
+            "prev_row_values": {},
+            "opening_balance": float(data.get("opening_balance", 0.0) or 0.0) if isinstance(data, dict) else 0.0
+        }
 
         # 1. thead
         if getattr(ast, "header_elements", None):
             buf.append("<thead>\n")
-            cls._render_elements(ast.header_elements, context, buf, col_accumulators, pending_page_break, is_top_level=True)
+            cls._render_elements(ast.header_elements, context, buf, col_accumulators, pending_page_break, row_history, is_top_level=True)
             buf.append("</thead>\n")
 
         # 2. tbody
@@ -558,6 +563,7 @@ class CompiledRenderer:
             buf=buf,
             col_accumulators=col_accumulators,
             pending_page_break=pending_page_break,
+            row_history=row_history,
             is_top_level=True
         )
         buf.append("</tbody>\n")
@@ -565,7 +571,7 @@ class CompiledRenderer:
         # 3. tfoot
         if getattr(ast, "footer_elements", None):
             buf.append("<tfoot>\n")
-            cls._render_elements(ast.footer_elements, context, buf, col_accumulators, pending_page_break, is_top_level=True)
+            cls._render_elements(ast.footer_elements, context, buf, col_accumulators, pending_page_break, row_history, is_top_level=True)
             buf.append("</tfoot>\n")
 
         buf.append(ast.footer_html)
@@ -589,18 +595,19 @@ class CompiledRenderer:
         buf: List[str],
         col_accumulators: Dict[int, float],
         pending_page_break: List[bool],
+        row_history: Dict[str, Any],
         is_top_level: bool = False
     ) -> None:
         for elem in elements:
             if isinstance(elem, StaticRowElement):
                 is_pb = pending_page_break[0]
                 pending_page_break[0] = False
-                cls._render_static_row(elem.row, context, buf, col_accumulators, is_page_break=is_pb)
+                cls._render_static_row(elem.row, context, buf, col_accumulators, row_history, is_page_break=is_pb)
             elif isinstance(elem, PageBreakElement):
                 pending_page_break[0] = True
             elif isinstance(elem, IfBlockElement):
                 if evaluator.evaluate_condition(elem.condition, context):
-                    cls._render_elements(elem.children, context, buf, col_accumulators, pending_page_break, is_top_level=False)
+                    cls._render_elements(elem.children, context, buf, col_accumulators, pending_page_break, row_history, is_top_level=False)
             elif isinstance(elem, EachBlockElement):
                 raw_items = evaluator.evaluate_expression(elem.collection_key, context)
                 if isinstance(raw_items, (list, tuple)):
@@ -631,7 +638,7 @@ class CompiledRenderer:
                     if page_break and item_idx > 0:
                         pending_page_break[0] = True
 
-                    cls._render_elements(elem.children, item_ctx, buf, col_accumulators, pending_page_break, is_top_level=False)
+                    cls._render_elements(elem.children, item_ctx, buf, col_accumulators, pending_page_break, row_history, is_top_level=False)
 
     @classmethod
     def _render_static_row(
@@ -640,6 +647,7 @@ class CompiledRenderer:
         context: Dict[str, Any],
         buf: List[str],
         col_accumulators: Dict[int, float],
+        row_history: Dict[str, Any],
         is_page_break: bool = False
     ) -> None:
         if row.is_hidden:
@@ -661,6 +669,34 @@ class CompiledRenderer:
         style_attr = f' style="{" ".join(tr_styles)}"' if tr_styles else ""
         buf.append(f"<tr{class_attr}{style_attr}>\n")
 
+        current_row_values: Dict[int, Any] = {}
+        rendered_cells: Dict[int, str] = {}
+
+        # Pass 1: Non-formula cells (variables, static values, media)
+        for cell in row.cells:
+            if cell.is_skipped or cell.raw_val is None:
+                continue
+            if cell.val_type != "formula":
+                val_html, num_val = cls._evaluate_cell_value(
+                    cell, context, col_accumulators, row_history, current_row_values, row.row_num
+                )
+                rendered_cells[cell.col_idx] = val_html
+                if num_val is not None:
+                    current_row_values[cell.col_idx] = num_val
+
+        # Pass 2: Formula cells (in-row math and running balances)
+        for cell in row.cells:
+            if cell.is_skipped or cell.raw_val is None:
+                continue
+            if cell.val_type == "formula":
+                val_html, num_val = cls._evaluate_cell_value(
+                    cell, context, col_accumulators, row_history, current_row_values, row.row_num
+                )
+                rendered_cells[cell.col_idx] = val_html
+                if num_val is not None:
+                    current_row_values[cell.col_idx] = num_val
+
+        # Assemble HTML table cells
         for cell in row.cells:
             if cell.is_skipped:
                 continue
@@ -673,41 +709,52 @@ class CompiledRenderer:
             span_str = " " + " ".join(span_attrs) if span_attrs else ""
             style_str = f' style="{cell.style_str}"' if cell.style_str else ""
 
-            cell_val_html = cls._evaluate_cell_value(cell, context, col_accumulators)
+            cell_val_html = rendered_cells.get(cell.col_idx, "")
             buf.append(f"<td{span_str}{style_str}>{cell_val_html}</td>\n")
 
         buf.append("</tr>\n")
+        row_history["prev_row_values"] = dict(current_row_values)
 
     @classmethod
     def _evaluate_cell_value(
         cls,
         cell: CompiledCell,
         context: Dict[str, Any],
-        col_accumulators: Dict[int, float]
-    ) -> str:
+        col_accumulators: Dict[int, float],
+        row_history: Dict[str, Any],
+        current_row_values: Dict[int, Any],
+        row_num: int
+    ) -> Tuple[str, Optional[float]]:
         if cell.val_type == "empty" or cell.raw_val is None:
-            return ""
+            return ("", None)
 
         raw_str = str(cell.raw_val)
 
         # 1. Media tag
         if cell.val_type == "media":
             clean_tag = raw_str.lstrip("~'").strip()
-            return cls._render_media(clean_tag, context)
+            return (cls._render_media(clean_tag, context), None)
 
         # 2. Formula
         if cell.val_type == "formula":
             if cell.is_sum_formula and cell.sum_target_col:
                 total = col_accumulators.get(cell.sum_target_col, 0.0)
-                return cls._format_num(total, cell.num_format)
+                return (cls._format_num(total, cell.num_format), total)
             elif cell.formula_str:
-                # Handle multiplication/arithmetic formula like =C8*D8
-                val = cls._evaluate_row_arithmetic(cell.formula_str, context)
-                if val is not None:
-                    # Record for column accumulator
-                    col_accumulators[cell.col_idx] = col_accumulators.get(cell.col_idx, 0.0) + float(val)
-                    return cls._format_num(val, cell.num_format)
-                return ""
+                res = cls._evaluate_arbitrary_formula(
+                    cell.formula_str,
+                    current_row_values,
+                    row_history.get("prev_row_values", {}),
+                    orig_row=row_num,
+                    opening_balance=row_history.get("opening_balance", 0.0)
+                )
+                if res == "#DIV/0!":
+                    return ('<span style="color: #ef4444; font-weight: bold;">#DIV/0!</span>', None)
+                if isinstance(res, (int, float)):
+                    col_accumulators[cell.col_idx] = col_accumulators.get(cell.col_idx, 0.0) + float(res)
+                    return (cls._format_num(res, cell.num_format), float(res))
+                return (str(res), None)
+            return ("", None)
 
         # 3. Variable placeholder
         if cell.val_type == "var":
@@ -726,63 +773,76 @@ class CompiledRenderer:
             rendered = render_cell_value(raw_s, context)
             if rendered is not None and rendered != "":
                 rendered_s = str(rendered)
-                if "<span class=" in rendered_s:
-                    return rendered_s.replace("\n", "<br/>")
+                num_val = None
                 try:
                     num_val = float(rendered)
                     col_accumulators[cell.col_idx] = col_accumulators.get(cell.col_idx, 0.0) + num_val
                 except (ValueError, TypeError):
                     pass
-                return html.escape(rendered_s).replace("\n", "<br/>")
-            return ""
+                if "<span class=" in rendered_s:
+                    return (rendered_s.replace("\n", "<br/>"), num_val)
+                return (html.escape(rendered_s).replace("\n", "<br/>"), num_val)
+            return ("", None)
 
         # 4. Static value
         if isinstance(cell.raw_val, (int, float)):
-            col_accumulators[cell.col_idx] = col_accumulators.get(cell.col_idx, 0.0) + float(cell.raw_val)
-            return cls._format_num(cell.raw_val, cell.num_format)
+            num_val = float(cell.raw_val)
+            col_accumulators[cell.col_idx] = col_accumulators.get(cell.col_idx, 0.0) + num_val
+            return (cls._format_num(cell.raw_val, cell.num_format), num_val)
 
-        return html.escape(raw_str)
+        return (html.escape(raw_str), None)
 
     @classmethod
-    def _evaluate_row_arithmetic(cls, formula: str, context: Dict[str, Any]) -> Optional[float]:
+    def _evaluate_arbitrary_formula(
+        cls,
+        formula: str,
+        current_row_values: Dict[int, Any],
+        prev_row_values: Dict[int, Any],
+        orig_row: int,
+        opening_balance: float = 0.0
+    ) -> Union[float, int, str]:
         # Handle =TODAY() and =NOW()
         clean = formula.strip().upper()
         if clean == "=TODAY()":
-            return date.today().strftime("%Y-%m-%d")
+            return datetime.date.today().strftime("%Y-%m-%d")
         if clean == "=NOW()":
-            return datetime.now().strftime("%Y-%m-%d %H:%M")
+            return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        # Handle simple product like =C8*D8 or =C8+D8
-        m_prod = re.match(r"^=([A-Z]+)\d+\s*([\*\+\-\/])\s*([A-Z]+)\d+$", formula.strip(), re.I)
-        if m_prod:
-            # Check context for common aliases or line total fields
-            op = m_prod.group(2)
-            # Find values from context items
-            vals = []
-            for k in ("qty", "quantity", "unit_price", "price", "rate", "ITEM_QTY", "ITEM_VALUE", "item_value"):
-                if k in context:
-                    try:
-                        vals.append(float(context[k]))
-                    except (ValueError, TypeError):
-                        pass
-            if len(vals) >= 2:
-                if op == "*":
-                    return vals[0] * vals[1]
-                elif op == "+":
-                    return vals[0] + vals[1]
-                elif op == "-":
-                    return vals[0] - vals[1]
-                elif op == "/" and vals[1] != 0:
-                    return vals[0] / vals[1]
+        expr = formula.lstrip("=").strip()
 
-        # Check if line_total or total is directly provided in context
-        for total_key in ("line_total", "total", "net_value", "ITEM_NET_VALUE", "amount"):
-            if total_key in context:
-                try:
-                    return float(context[total_key])
-                except (ValueError, TypeError):
-                    pass
-        return 0.0
+        def cell_replacer(match: re.Match) -> str:
+            col_str = match.group(1).replace("$", "")
+            col_idx = column_index_from_string(col_str)
+            ref_row = int(match.group(3))
+
+            if ref_row < orig_row:
+                # Preceding row (running balance like F11 where orig_row is 12)
+                val = prev_row_values.get(col_idx, opening_balance)
+            else:
+                # Current row (like D12, B12, E12)
+                val = current_row_values.get(col_idx, 0.0)
+
+            try:
+                num = float(val)
+                return str(num)
+            except (ValueError, TypeError):
+                return str(opening_balance if ref_row < orig_row else 0.0)
+
+        math_expr = CELL_COORD_REGEX.sub(cell_replacer, expr)
+        math_expr = math_expr.replace("^", "**")
+
+        if re.match(r"^[\s0-9\+\-\*\/\%\(\)\.]+$", math_expr):
+            try:
+                res = eval(math_expr, {"__builtins__": None}, {})
+                if isinstance(res, float) and res.is_integer():
+                    return int(res)
+                return round(res, 4) if isinstance(res, float) else res
+            except ZeroDivisionError:
+                return "#DIV/0!"
+            except Exception:
+                pass
+
+        return formula
 
     @classmethod
     def _format_num(cls, val: Any, fmt: Optional[str]) -> str:

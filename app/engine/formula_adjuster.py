@@ -72,14 +72,27 @@ class FormulaAdjuster:
             if row_pinned:
                 return match.group(0)
 
-            # If formula references the row it was written in (e.g. =B3*C3 on row 3)
+            # If formula references the row it was written in (e.g. =B3*C3 on row 3 or =D12/B12 on row 12)
             if ref_row == orig_row:
                 return f"{col}{target_row}"
 
-            # If referencing another mapped row
+            # If formula is in a repeating loop and references a relative preceding/following row (e.g. =F11+D12-E12 on row 12)
+            is_repeating = (orig_row in row_mapping and len(row_mapping[orig_row]) > 1)
+            offset = ref_row - orig_row
+            if is_repeating and abs(offset) <= 5:
+                # If ref_row is not separately expanding
+                if ref_row not in row_mapping or len(row_mapping.get(ref_row, [])) <= 1:
+                    new_ref_row = target_row + offset
+                    return f"{col}{new_ref_row}"
+
+            # If referencing another mapped row that expanded
             if ref_row in row_mapping and row_mapping[ref_row]:
-                # If target is within the mapped range of that row, use relative; else first
-                return f"{col}{row_mapping[ref_row][0]}"
+                mapped_list = row_mapping[ref_row]
+                if orig_row in row_mapping and target_row in row_mapping[orig_row]:
+                    idx = row_mapping[orig_row].index(target_row)
+                    if idx < len(mapped_list):
+                        return f"{col}{mapped_list[idx]}"
+                return f"{col}{mapped_list[0]}"
 
             return match.group(0)
 

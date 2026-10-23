@@ -67,6 +67,12 @@ class TemplateProcessor:
         self._update_target_print_area(total_emitted - 1)
         self._update_target_conditional_formatting(total_emitted - 1)
 
+        # Attach opening balance from data if provided
+        try:
+            self.target_sheet._opening_balance = float(data.get("opening_balance", 0.0))
+        except (ValueError, TypeError):
+            self.target_sheet._opening_balance = 0.0
+
         # Attach header/footer metadata to target sheet for downstream HTML renderers
         self.target_sheet._header_rows = set(self.header_target_rows)
         self.target_sheet._footer_rows = set(self.footer_target_rows)
@@ -560,6 +566,10 @@ class TemplateProcessor:
             for k, v in scoped_mapping.items():
                 if v:
                     effective_mapping[k] = v
+
+            # Always ensure the formula's own orig_row mapping reflects all emitted rows
+            if orig_row in self.global_row_mapping:
+                effective_mapping[orig_row] = self.global_row_mapping[orig_row]
 
             adjusted = FormulaAdjuster.adjust_formula(
                 formula=formula_str,

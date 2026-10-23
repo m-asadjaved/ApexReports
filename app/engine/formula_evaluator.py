@@ -183,24 +183,31 @@ class FormulaEvaluator:
             if val is None:
                 val = ws.cell(row=row_num, column=col_num).value
 
+            op_bal = getattr(ws, "_opening_balance", 0.0)
             if val is None or val == "":
-                return "0"
+                return str(op_bal)
             try:
                 return str(float(val))
             except (ValueError, TypeError):
-                return f'"{str(val)}"'
+                # Non-numeric cell (e.g. table header text "Net Value" above running balance)
+                return str(op_bal)
 
         expr = CELL_COORD_REGEX.sub(cell_replacer, expr)
 
         # Step 3: Safely evaluate math expression
-        try:
-            cleaned_math = re.sub(r"[^0-9\+\-\*\/\%\(\)\.]", "", expr)
-            if cleaned_math == expr:
-                res = eval(cleaned_math, {"__builtins__": None}, {})
+        math_expr = expr.replace("^", "**")
+        if re.match(r"^[\s0-9\+\-\*\/\%\(\)\.]+$", math_expr):
+            try:
+                res = eval(math_expr, {"__builtins__": None}, {})
                 if isinstance(res, float) and res.is_integer():
                     return int(res)
                 return round(res, 4) if isinstance(res, float) else res
-            
+            except ZeroDivisionError:
+                return "#DIV/0!"
+            except Exception:
+                pass
+
+        try:
             clean_str = expr.strip('"\'')
             if cls._is_numeric(clean_str):
                 val = float(clean_str)
