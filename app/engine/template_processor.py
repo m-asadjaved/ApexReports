@@ -217,9 +217,29 @@ class TemplateProcessor:
             if directive and directive["type"] == "each_start":
                 close_idx = self._find_matching_close(rows, i + 1, end_idx, "each_start", "each_end")
                 list_key = directive["key"]
-                items = evaluator.evaluate_expression(list_key, context)
-                if not isinstance(items, (list, tuple)):
-                    items = []
+                raw_items = evaluator.evaluate_expression(list_key, context)
+                if isinstance(raw_items, (list, tuple)):
+                    items = list(raw_items)
+                elif isinstance(raw_items, dict):
+                    items = [raw_items]
+                else:
+                    items = None
+
+                is_top_level = (start_idx == 0 or target_r == 1)
+
+                if items is None:
+                    if not context:
+                        # User passed empty data: {} - render 1 blank iteration so template static layout,
+                        # headers, borders and table formatting are displayed instead of an empty page.
+                        items = [{}]
+                    elif list_key not in context and is_top_level:
+                        # User passed flat single-record data without list wrapper (e.g. {"invoice_no": ...})
+                        # Treat top-level context itself as the single item for this loop.
+                        items = [context]
+                    else:
+                        items = []
+                elif len(items) == 0 and not context:
+                    items = [{}]
 
                 page_break = directive.get("attrs", {}).get("page_break", False)
 
@@ -370,8 +390,9 @@ class TemplateProcessor:
                 dst_cell.value = val_str
                 continue
 
-            if val_str.startswith("{{@"):
-                self._handle_media_tag(val_str, dst_cell, target_row_num, col_idx, context)
+            val_clean = val_str.lstrip("~'").strip()
+            if val_clean.startswith("{{@"):
+                self._handle_media_tag(val_clean, dst_cell, target_row_num, col_idx, context)
                 continue
 
             dst_cell.value = render_cell_value(raw_val, context)

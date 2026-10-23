@@ -177,3 +177,53 @@ def test_template_processor_counta():
     from app.renderer.fast_html_renderer import FastHtmlRenderer
     html = FastHtmlRenderer.render(out_ws)
     assert ">3</td>" in html
+
+
+def test_template_processor_empty_data_preserves_static_cells():
+    wb = Workbook()
+    ws = wb.active
+    ws["A1"] = "{{#each invoices}}"
+    ws["A2"] = "SALES TAX INVOICE"
+    ws["B2"] = "Invoice: {{inv_no}}"
+    ws["A3"] = "{{#each items}}"
+    ws["A4"] = "{{item_name}}"
+    ws["B4"] = "{{qty}}"
+    ws["A5"] = "{{/each}}"
+    ws["A6"] = "Total:"
+    ws["A7"] = "{{/each}}"
+
+    # When caller passes completely empty data: {}
+    processor = TemplateProcessor(wb)
+    out_wb = processor.process({})
+    out_ws = out_wb.active
+
+    # Static cells must NOT be wiped out!
+    assert out_ws.max_row >= 2
+    assert out_ws["A1"].value == "SALES TAX INVOICE"
+    assert out_ws["B1"].value == "Invoice: "
+    assert any(out_ws.cell(r, 1).value == "Total:" for r in range(1, out_ws.max_row + 1))
+
+
+def test_template_processor_flat_single_record():
+    wb = Workbook()
+    ws = wb.active
+    ws["A1"] = "{{#each invoices}}"
+    ws["A2"] = "Invoice: {{inv_no}}"
+    ws["A3"] = "{{#each items}}"
+    ws["A4"] = "{{item_name}}"
+    ws["A5"] = "{{/each}}"
+    ws["A6"] = "{{/each}}"
+
+    # When caller passes a single flat record without "invoices" array wrapper
+    data = {
+        "inv_no": "INV-777",
+        "items": [{"item_name": "Item A"}, {"item_name": "Item B"}]
+    }
+
+    processor = TemplateProcessor(wb)
+    out_wb = processor.process(data)
+    out_ws = out_wb.active
+
+    assert out_ws["A1"].value == "Invoice: INV-777"
+    assert out_ws["A2"].value == "Item A"
+    assert out_ws["A3"].value == "Item B"
