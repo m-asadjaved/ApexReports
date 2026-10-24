@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Clean Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Modern Light Theme CodeMirror Editor */
+.CodeMirror {
+  height: 100% !important;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.CodeMirror-gutters {
+  background: #f8fafc !important;
+  border-right: 1px solid #e2e8f0 !important;
+  padding-right: 4px;
+}
+
+.CodeMirror-linenumber {
+  color: #94a3b8 !important;
+  font-size: 11px;
+}
+
+.CodeMirror-cursor {
+  border-left: 2px solid #0284c7 !important;
+}
+
+.CodeMirror-selected {
+  background: #e0f2fe !important;
+}
+
+.CodeMirror-focused .CodeMirror-selected {
+  background: #bae6fd !important;
+}
+
+.CodeMirror-matchingbracket {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  font-weight: bold;
+  border-bottom: 1px solid #0284c7;
+}
+
+/* Light Theme JSON Token Highlighting */
+.cm-s-default .cm-property {
+  color: #0369a1 !important; /* Sky 700 - JSON Keys */
+  font-weight: 600;
+}
+.cm-s-default .cm-string {
+  color: #15803d !important; /* Emerald 700 - String values */
+}
+.cm-s-default .cm-number {
+  color: #7c3aed !important; /* Violet 600 - Numbers */
+  font-weight: 500;
+}
+.cm-s-default .cm-atom,
+.cm-s-default .cm-keyword {
+  color: #b91c1c !important; /* Red 700 - Booleans / Null */
+  font-weight: 600;
+}
+.cm-s-default .cm-punctuation,
+.cm-s-default .cm-bracket {
+  color: #475569 !important; /* Slate 600 - Brackets, colons, commas */
+}
+.cm-s-default .cm-comment {
+  color: #94a3b8 !important;
+  font-style: italic;
+}

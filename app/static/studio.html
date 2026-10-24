@@ -1,113 +1,113 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-900 text-slate-100">
+<html lang="en" class="h-full bg-slate-50 text-slate-800">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ApexReports Studio • Live Sandbox</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%22><text y=%2226%22 font-size=%2226%22>⚡</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%230284c7%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22M13 10V3L4 14h7v7l9-11h-7z%22/></svg>">
 
   <!-- Local Offline Tailwind CSS (Compiled & Zero-Latency) -->
   <link rel="stylesheet" href="/static/vendor/studio.css">
 
   <!-- Local Offline CodeMirror for JSON Editing -->
   <link rel="stylesheet" href="/static/vendor/codemirror.min.css">
-  <link rel="stylesheet" href="/static/vendor/dracula.min.css">
   <script src="/static/vendor/codemirror.min.js"></script>
   <script src="/static/vendor/javascript.min.js"></script>
   <script src="/static/vendor/matchbrackets.min.js"></script>
-
-  <style>
-    /* Custom Scrollbars */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-    .CodeMirror {
-      height: 100% !important;
-      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-      font-size: 13px;
-      line-height: 1.5;
-      background: #0f172a !important;
-    }
-    .CodeMirror-gutters {
-      background: #0f172a !important;
-      border-right: 1px solid #1e293b !important;
-    }
-  </style>
 </head>
-<body class="h-full flex flex-col font-sans overflow-hidden select-none">
+<body class="h-full flex flex-col font-sans overflow-hidden select-none bg-slate-100 text-slate-800 antialiased">
 
   <!-- TOP HEADER NAVBAR -->
-  <header class="h-14 bg-slate-950 border-b border-slate-800 flex items-center justify-between px-4 z-20 shrink-0">
+  <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-20 shrink-0 shadow-2xs">
     <!-- Brand -->
     <div class="flex items-center space-x-3">
-      <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-tr from-sky-500 to-indigo-600 shadow-md shadow-sky-500/20 font-bold text-white text-base">
-        ⚡
+      <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-600 shadow-sm text-white">
+        <!-- Lightning bolt SVG -->
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
       </div>
-      <div>
-        <div class="flex items-center space-x-2">
-          <span class="font-bold tracking-tight text-white text-base">ApexReports</span>
-          <span class="px-1.5 py-0.5 text-[10px] font-semibold bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded uppercase tracking-wider">Studio</span>
-        </div>
+      <div class="flex items-center space-x-2">
+        <span class="font-bold tracking-tight text-slate-900 text-base">ApexReports</span>
+        <span class="px-2 py-0.5 text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 rounded uppercase tracking-wider">Studio</span>
       </div>
     </div>
 
-    <!-- Template Selector & Upload -->
+    <!-- Template Selector & Upload/Download Actions -->
     <div class="flex items-center space-x-2">
-      <label for="templateSelect" class="text-xs font-medium text-slate-400">Template:</label>
+      <label for="templateSelect" class="text-xs font-medium text-slate-500">Template:</label>
       <div class="relative">
-        <select id="templateSelect" class="bg-slate-900 text-slate-100 text-xs font-semibold rounded-md border border-slate-700 pl-3 pr-8 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer">
+        <select id="templateSelect" class="bg-white text-slate-800 text-xs font-semibold rounded-md border border-slate-300 pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 cursor-pointer shadow-2xs">
           <option value="" disabled selected>Loading templates...</option>
         </select>
       </div>
 
       <!-- Upload Template Button -->
-      <label class="cursor-pointer inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Upload custom .xlsx template">
-        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+      <label class="cursor-pointer inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs transition" title="Upload custom .xlsx template">
+        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+        </svg>
         Upload .xlsx
         <input type="file" id="templateFileInput" accept=".xlsx" class="hidden" />
       </label>
 
       <!-- Download Template Button -->
-      <button id="downloadTemplateBtn" class="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Download raw Excel template">
-        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      <button id="downloadTemplateBtn" class="inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs transition cursor-pointer" title="Download raw Excel template">
+        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
         Download .xlsx
       </button>
     </div>
 
     <!-- Output Format Selector & Run Action -->
     <div class="flex items-center space-x-3">
-      <!-- Format Toggle -->
-      <div class="bg-slate-900 p-0.5 rounded-lg border border-slate-800 flex text-xs font-medium">
-        <button id="fmtHtml" onclick="setFormat('html')" class="px-2.5 py-1 rounded-md text-white bg-sky-600 transition flex items-center space-x-1">
-          <span>⚡ HTML</span>
+      <!-- Format Toggle (Segmented control) -->
+      <div class="bg-slate-100 p-0.5 rounded-lg border border-slate-200 flex text-xs font-medium">
+        <button id="fmtHtml" onclick="setFormat('html')" class="px-2.5 py-1 rounded-md text-slate-900 bg-white shadow-xs border border-slate-200/80 transition flex items-center space-x-1 font-semibold cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+          </svg>
+          <span>HTML</span>
         </button>
-        <button id="fmtPdf" onclick="setFormat('pdf')" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition flex items-center space-x-1">
-          <span>🖨️ PDF</span>
+        <button id="fmtPdf" onclick="setFormat('pdf')" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center space-x-1 cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+          <span>PDF</span>
         </button>
-        <button id="fmtXlsx" onclick="setFormat('xlsx')" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition flex items-center space-x-1">
-          <span>📊 XLSX</span>
+        <button id="fmtXlsx" onclick="setFormat('xlsx')" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center space-x-1 cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <span>XLSX</span>
         </button>
       </div>
 
       <!-- Latency & Status Pill -->
-      <div id="statusBadge" class="hidden items-center px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-950/70 border border-emerald-500/40 text-emerald-400">
-        <span id="statusIcon" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span>
+      <div id="statusBadge" class="hidden items-center px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-50 border border-emerald-200 text-emerald-700">
+        <span id="statusIcon" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-1.5"></span>
         <span id="statusText">Ready</span>
       </div>
 
       <!-- Run Button -->
-      <button id="runBtn" onclick="runReport()" class="inline-flex items-center px-4 py-1.5 rounded-md text-xs font-semibold text-white bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 shadow-md shadow-sky-500/25 transition active:scale-95 cursor-pointer">
-        <svg id="runIcon" class="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>
-        <svg id="runSpinner" class="hidden animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+      <button id="runBtn" onclick="runReport()" class="inline-flex items-center px-3.5 py-1.5 rounded-md text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 shadow-sm transition active:scale-95 cursor-pointer">
+        <svg id="runIcon" class="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+        </svg>
+        <svg id="runSpinner" class="hidden animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
         <span>Run</span>
-        <span class="ml-1.5 text-[10px] text-sky-200 opacity-70">Ctrl+↵</span>
+        <kbd class="ml-1.5 px-1.5 py-0.2 text-[10px] bg-sky-700/60 border border-sky-400/30 rounded text-sky-100 font-mono">Ctrl+↵</kbd>
       </button>
 
       <!-- Docs Link -->
-      <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-slate-200 transition" title="Open Swagger API docs">
-        API
+      <a href="/docs" target="_blank" class="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition" title="Open Swagger API documentation">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
       </a>
     </div>
   </header>
@@ -115,95 +115,116 @@
   <!-- MAIN WORKSPACE: 2-COLUMN SPLIT -->
   <div class="flex-1 flex overflow-hidden">
 
-    <!-- LEFT WORKSPACE: JSON Payload & Template Inspector -->
-    <div class="w-1/2 flex flex-col border-r border-slate-800 bg-slate-900">
+    <!-- LEFT WORKSPACE: JSON Payload, Inspector, Presets -->
+    <div class="w-1/2 flex flex-col border-r border-slate-200 bg-white">
       <!-- Left Tabs -->
-      <div class="h-10 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between px-3 shrink-0">
+      <div class="h-10 bg-slate-50 border-b border-slate-200 flex items-center justify-between px-3 shrink-0">
         <div class="flex space-x-1">
-          <button id="tabBtnPayload" onclick="switchLeftTab('payload')" class="px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5">
-            <span>{ } JSON Payload</span>
+          <!-- Payload Tab -->
+          <button id="tabBtnPayload" onclick="switchLeftTab('payload')" class="px-3 py-1.5 text-xs font-semibold text-sky-700 border-b-2 border-sky-600 bg-white transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+            <span>JSON Payload</span>
           </button>
-          <button id="tabBtnInspector" onclick="switchLeftTab('inspector')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
-            <span>🔍 Template Inspector</span>
-            <span id="varCountBadge" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300">0</span>
+
+          <!-- Inspector Tab -->
+          <button id="tabBtnInspector" onclick="switchLeftTab('inspector')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span>Template Inspector</span>
+            <span id="varCountBadge" class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-semibold">0</span>
           </button>
-          <button id="tabBtnPresets" onclick="switchLeftTab('presets')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
-            <span>⚡ Presets</span>
+
+          <!-- Presets Tab -->
+          <button id="tabBtnPresets" onclick="switchLeftTab('presets')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+            </svg>
+            <span>Presets</span>
           </button>
         </div>
 
         <!-- Payload Actions (shown on Payload tab) -->
         <div id="payloadActions" class="flex items-center space-x-1.5">
-          <button onclick="formatJson()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Format & indent JSON">
+          <button onclick="formatJson()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs transition cursor-pointer" title="Format & indent JSON">
             Format
           </button>
-          <button onclick="loadTemplateDefaultData()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Reset to template default data">
+          <button onclick="loadTemplateDefaultData()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs transition cursor-pointer" title="Reset to template default data">
             Load Sample
           </button>
-          <button onclick="clearJson()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-rose-300 transition" title="Clear editor">
+          <button onclick="clearJson()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-rose-200 shadow-2xs transition cursor-pointer" title="Clear editor">
             Clear
           </button>
         </div>
       </div>
 
       <!-- Tab Content: JSON Payload -->
-      <div id="tabContentPayload" class="flex-1 relative overflow-hidden flex flex-col">
+      <div id="tabContentPayload" class="flex-1 relative overflow-hidden flex flex-col bg-white">
         <div id="editorContainer" class="flex-1 w-full h-full select-text"></div>
-        <div id="jsonErrorBar" class="hidden bg-rose-950/80 border-t border-rose-500/40 px-3 py-1.5 text-xs text-rose-300 flex items-center space-x-2">
-          <svg class="w-4 h-4 text-rose-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <div id="jsonErrorBar" class="hidden bg-rose-50 border-t border-rose-200 px-3 py-1.5 text-xs text-rose-700 flex items-center space-x-2">
+          <svg class="w-4 h-4 text-rose-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
           <span id="jsonErrorText" class="truncate font-mono">Invalid JSON</span>
         </div>
       </div>
 
       <!-- Tab Content: Template Inspector -->
-      <div id="tabContentInspector" class="hidden flex-1 overflow-y-auto p-4 space-y-4 select-text">
+      <div id="tabContentInspector" class="hidden flex-1 overflow-y-auto p-4 space-y-4 select-text bg-slate-50/50">
         <!-- Linter / Health Banner -->
-        <div id="linterBanner" class="p-3 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+        <div id="linterBanner" class="p-3.5 rounded-lg border border-slate-200 bg-white shadow-2xs flex items-center justify-between">
           <div class="flex items-center space-x-3">
-            <div id="linterScoreCircle" class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-emerald-950 text-emerald-400 border border-emerald-500/40">
+            <div id="linterScoreCircle" class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">
               100
             </div>
             <div>
-              <div id="linterSummaryText" class="text-xs font-semibold text-white">Template is Healthy</div>
-              <div id="linterSubText" class="text-[11px] text-slate-400 mt-0.5">0 errors • 0 warnings</div>
+              <div id="linterSummaryText" class="text-xs font-semibold text-slate-900">Template is Healthy</div>
+              <div id="linterSubText" class="text-[11px] text-slate-500 mt-0.5">0 errors • 0 warnings</div>
             </div>
           </div>
-          <button onclick="runLinter()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 rounded text-xs font-medium transition flex items-center space-x-1 cursor-pointer">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <button onclick="runLinter()" class="px-2.5 py-1 bg-white hover:bg-slate-50 text-sky-700 border border-slate-300 rounded-md text-xs font-medium transition flex items-center space-x-1.5 cursor-pointer shadow-2xs">
+            <svg class="w-3.5 h-3.5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
             <span>Lint & Validate</span>
           </button>
         </div>
 
         <!-- Linter Diagnostics Card -->
-        <div id="linterDiagnosticsCard" class="hidden p-3 rounded-lg border border-slate-800 bg-slate-950 space-y-2">
-          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Validation Diagnostics</h4>
+        <div id="linterDiagnosticsCard" class="hidden p-3.5 rounded-lg border border-slate-200 bg-white shadow-2xs space-y-2">
+          <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Validation Diagnostics</h4>
           <div id="linterDiagnosticsList" class="space-y-1.5 text-xs font-mono"></div>
         </div>
 
         <!-- Overview Card -->
-        <div class="grid grid-cols-4 gap-2">
-          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Active Sheet</div>
-            <div id="inspSheetName" class="text-sm font-bold text-white mt-0.5 truncate">-</div>
+        <div class="grid grid-cols-4 gap-2.5">
+          <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Active Sheet</div>
+            <div id="inspSheetName" class="text-sm font-bold text-slate-900 mt-0.5 truncate">-</div>
           </div>
-          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Dimensions</div>
-            <div id="inspDimensions" class="text-sm font-bold text-sky-400 mt-0.5">-</div>
+          <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Dimensions</div>
+            <div id="inspDimensions" class="text-sm font-bold text-sky-700 mt-0.5">-</div>
           </div>
-          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Repeating Loops</div>
-            <div id="inspLoopCount" class="text-sm font-bold text-amber-400 mt-0.5">0</div>
+          <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Repeating Loops</div>
+            <div id="inspLoopCount" class="text-sm font-bold text-amber-700 mt-0.5">0</div>
           </div>
-          <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
-            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Formulas</div>
-            <div id="inspFormulaCount" class="text-sm font-bold text-emerald-400 mt-0.5">0</div>
+          <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+            <div class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Formulas</div>
+            <div id="inspFormulaCount" class="text-sm font-bold text-emerald-700 mt-0.5">0</div>
           </div>
         </div>
 
         <!-- Repeating Blocks Section -->
         <div>
-          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
-            <span class="mr-1.5">🔁</span> Repeating Frames (Directives)
+          <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 flex items-center">
+            <svg class="w-3.5 h-3.5 mr-1.5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Repeating Frames (Directives)
           </h4>
           <div id="inspBlocksList" class="space-y-1.5 text-xs font-mono">
             <!-- Injected dynamically -->
@@ -212,19 +233,22 @@
 
         <!-- Discovered Variables Section -->
         <div>
-          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
-            <span class="mr-1.5">🏷️</span> Template Placeholders & Fields
+          <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 flex items-center">
+            <svg class="w-3.5 h-3.5 mr-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            Template Placeholders & Fields
           </h4>
-          <div class="overflow-hidden rounded-lg border border-slate-800">
+          <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xs">
             <table class="w-full text-left text-xs font-mono">
-              <thead class="bg-slate-950 text-slate-400 uppercase text-[10px]">
+              <thead class="bg-slate-50 text-slate-600 uppercase text-[10px] border-b border-slate-200">
                 <tr>
-                  <th class="p-2">Variable</th>
-                  <th class="p-2">Cell</th>
-                  <th class="p-2">Scope</th>
+                  <th class="p-2 font-semibold">Variable</th>
+                  <th class="p-2 font-semibold">Cell</th>
+                  <th class="p-2 font-semibold">Scope</th>
                 </tr>
               </thead>
-              <tbody id="inspVariablesTable" class="divide-y divide-slate-800 bg-slate-900/50">
+              <tbody id="inspVariablesTable" class="divide-y divide-slate-100 bg-white">
                 <!-- Injected dynamically -->
               </tbody>
             </table>
@@ -233,8 +257,11 @@
 
         <!-- Formulas Section -->
         <div>
-          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
-            <span class="mr-1.5">🧮</span> Excel Formulas
+          <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 flex items-center">
+            <svg class="w-3.5 h-3.5 mr-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+            </svg>
+            Excel Formulas
           </h4>
           <div id="inspFormulasList" class="space-y-1.5 text-xs font-mono">
             <!-- Injected dynamically -->
@@ -243,8 +270,11 @@
 
         <!-- Media Tags Section -->
         <div>
-          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
-            <span class="mr-1.5">📱</span> Dynamic Media (Barcodes / QR Codes)
+          <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 flex items-center">
+            <svg class="w-3.5 h-3.5 mr-1.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            Dynamic Media (Barcodes / QR Codes)
           </h4>
           <div id="inspMediaList" class="space-y-1.5 text-xs font-mono">
             <!-- Injected dynamically -->
@@ -253,136 +283,174 @@
       </div>
 
       <!-- Tab Content: Presets -->
-      <div id="tabContentPresets" class="hidden flex-1 overflow-y-auto p-4 space-y-3">
-        <div class="text-xs text-slate-400 mb-2">Click any preset below to load sample mock data into the editor:</div>
+      <div id="tabContentPresets" class="hidden flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+        <div class="text-xs text-slate-500 mb-2">Click any preset below to load sample mock data into the editor:</div>
 
-        <div onclick="loadPreset('invoice_standard')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+        <div onclick="loadPreset('invoice_standard')" class="cursor-pointer p-3.5 rounded-lg border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/20 hover:shadow-2xs transition">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-white">Invoice • Standard Single</span>
-            <span class="text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">INVOICE_REPORT</span>
+            <span class="text-xs font-semibold text-slate-900">Invoice • Standard Single</span>
+            <span class="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 font-medium px-2 py-0.5 rounded">INVOICE_REPORT</span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-1">Single invoice with 3 items, summary formulas, and barcode.</p>
+          <p class="text-[11px] text-slate-500 mt-1">Single invoice with 3 items, summary formulas, and barcode.</p>
         </div>
 
-        <div onclick="loadPreset('invoice_multipages')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+        <div onclick="loadPreset('invoice_multipages')" class="cursor-pointer p-3.5 rounded-lg border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/20 hover:shadow-2xs transition">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-white">Invoice • Multi-Page Breaks</span>
-            <span class="text-[10px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">INVOICE_REPORT</span>
+            <span class="text-xs font-semibold text-slate-900">Invoice • Multi-Page Breaks</span>
+            <span class="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 font-medium px-2 py-0.5 rounded">INVOICE_REPORT</span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-1">2 distinct invoices demonstrating automatic native page breaks.</p>
+          <p class="text-[11px] text-slate-500 mt-1">2 distinct invoices demonstrating automatic native page breaks.</p>
         </div>
 
-        <div onclick="loadPreset('dept_employees')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+        <div onclick="loadPreset('dept_employees')" class="cursor-pointer p-3.5 rounded-lg border border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/20 hover:shadow-2xs transition">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-white">Master-Detail • Departments & Employees</span>
-            <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">DEPT_EMPLOYEES</span>
+            <span class="text-xs font-semibold text-slate-900">Master-Detail • Departments & Employees</span>
+            <span class="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 font-medium px-2 py-0.5 rounded">DEPT_EMPLOYEES</span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-1">3 departments (Accounting, Research, Sales) with inner salary subtotal resets.</p>
+          <p class="text-[11px] text-slate-500 mt-1">3 departments (Accounting, Research, Sales) with inner salary subtotal resets.</p>
         </div>
 
-        <div onclick="loadPreset('stress_test')" class="cursor-pointer p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-sky-500/50 hover:bg-slate-900 transition">
+        <div onclick="loadPreset('stress_test')" class="cursor-pointer p-3.5 rounded-lg border border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/20 hover:shadow-2xs transition">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-white">Stress Test • 50 Repeating Items</span>
-            <span class="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded">High Volume</span>
+            <span class="text-xs font-semibold text-slate-900">Stress Test • 50 Repeating Items</span>
+            <span class="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 font-medium px-2 py-0.5 rounded">High Volume</span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-1">Tests formula range expansion and rendering performance across 50 records.</p>
+          <p class="text-[11px] text-slate-500 mt-1">Tests formula range expansion and rendering performance across 50 records.</p>
         </div>
       </div>
     </div>
 
     <!-- RIGHT WORKSPACE: Live Preview & Integration Code -->
-    <div class="w-1/2 flex flex-col bg-slate-950">
+    <div class="w-1/2 flex flex-col bg-slate-50">
       <!-- Right Tabs -->
-      <div class="h-10 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between px-3 shrink-0">
+      <div class="h-10 bg-slate-50 border-b border-slate-200 flex items-center justify-between px-3 shrink-0">
         <div class="flex space-x-1">
-          <button id="tabBtnPreview" onclick="switchRightTab('preview')" class="px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5">
-            <span>👁️ Live Preview</span>
+          <!-- Preview Tab -->
+          <button id="tabBtnPreview" onclick="switchRightTab('preview')" class="px-3 py-1.5 text-xs font-semibold text-sky-700 border-b-2 border-sky-600 bg-white transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            <span>Live Preview</span>
           </button>
-          <button id="tabBtnApex" onclick="switchRightTab('apex')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
-            <span>⚡ Oracle APEX (PL/SQL)</span>
+
+          <!-- Oracle APEX Tab -->
+          <button id="tabBtnApex" onclick="switchRightTab('apex')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+            </svg>
+            <span>Oracle APEX (PL/SQL)</span>
           </button>
-          <button id="tabBtnCurl" onclick="switchRightTab('curl')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
-            <span>💻 cURL</span>
+
+          <!-- cURL Tab -->
+          <button id="tabBtnCurl" onclick="switchRightTab('curl')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span>cURL</span>
           </button>
-          <button id="tabBtnHeaders" onclick="switchRightTab('headers')" class="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5">
-            <span>📊 Headers</span>
+
+          <!-- Headers Tab -->
+          <button id="tabBtnHeaders" onclick="switchRightTab('headers')" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span>Headers</span>
           </button>
         </div>
 
         <!-- Preview Actions -->
         <div id="previewActions" class="flex items-center space-x-2">
           <!-- Zoom Controls -->
-          <div class="flex items-center bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[11px] text-slate-400 space-x-1">
-            <button onclick="setZoom(0.8)" class="hover:text-white px-1">80%</button>
-            <button onclick="setZoom(1.0)" class="hover:text-white px-1 font-bold text-sky-400">100%</button>
-            <button onclick="setZoom(1.2)" class="hover:text-white px-1">120%</button>
+          <div class="flex items-center bg-white border border-slate-200 shadow-2xs rounded px-1.5 py-0.5 text-[11px] text-slate-600 space-x-1">
+            <button onclick="setZoom(0.8)" class="hover:text-slate-900 px-1 cursor-pointer">80%</button>
+            <button onclick="setZoom(1.0)" class="hover:text-slate-900 px-1 font-bold text-sky-700 cursor-pointer">100%</button>
+            <button onclick="setZoom(1.2)" class="hover:text-slate-900 px-1 cursor-pointer">120%</button>
           </div>
 
-          <button onclick="openInNewTab()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Open output in new browser tab">
-            Open Tab ↗
+          <button onclick="openInNewTab()" class="px-2.5 py-1 rounded text-[11px] font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs transition flex items-center cursor-pointer" title="Open output in new browser tab">
+            <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            Open Tab
           </button>
-          <button onclick="downloadCurrentOutput()" class="px-2 py-0.5 rounded text-[11px] font-medium bg-sky-900 hover:bg-sky-800 text-sky-200 transition" title="Download output file directly">
-            Download ⬇
+          <button onclick="downloadCurrentOutput()" class="px-2.5 py-1 rounded text-[11px] font-medium bg-sky-600 hover:bg-sky-700 text-white shadow-2xs transition flex items-center cursor-pointer" title="Download output file directly">
+            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Download
           </button>
         </div>
       </div>
 
       <!-- Tab Content: Live Preview -->
-      <div id="tabContentPreview" class="flex-1 relative flex flex-col bg-slate-900/60 overflow-hidden">
+      <div id="tabContentPreview" class="flex-1 relative flex flex-col bg-slate-200/50 overflow-hidden">
         <!-- Loading Overlay -->
-        <div id="previewLoading" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-xs flex flex-col items-center justify-center z-10 space-y-3">
-          <div class="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-          <span class="text-xs font-medium text-slate-300">Rendering report...</span>
+        <div id="previewLoading" class="hidden absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center z-10 space-y-3">
+          <div class="w-8 h-8 border-2 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-xs font-medium text-slate-700">Rendering report...</span>
         </div>
 
         <!-- Empty State -->
         <div id="previewEmpty" class="flex-1 flex flex-col items-center justify-center text-slate-500 p-8 space-y-3">
-          <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl">
-            📄
+          <div class="w-12 h-12 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-400">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
           </div>
           <div class="text-center max-w-sm">
-            <p class="text-sm font-semibold text-slate-300">No report rendered yet</p>
-            <p class="text-xs text-slate-500 mt-1">Click the <strong class="text-sky-400">Run</strong> button or press <kbd class="px-1.5 py-0.5 text-[10px] bg-slate-800 border border-slate-700 rounded text-slate-300">Ctrl + Enter</kbd> to generate an instant preview.</p>
+            <p class="text-sm font-semibold text-slate-800">No report rendered yet</p>
+            <p class="text-xs text-slate-500 mt-1">Click the <strong class="text-sky-700">Run</strong> button or press <kbd class="px-1.5 py-0.5 text-[10px] bg-slate-100 border border-slate-300 rounded text-slate-700 font-mono">Ctrl + Enter</kbd> to generate an instant preview.</p>
           </div>
         </div>
 
         <!-- Rendered Container -->
-        <div id="previewWrapper" class="hidden flex-1 overflow-auto bg-slate-950/50 flex justify-center p-4">
-          <iframe id="previewIframe" class="w-full h-full bg-white shadow-2xl rounded-md transition-transform origin-top" sandbox="allow-same-origin allow-scripts"></iframe>
+        <div id="previewWrapper" class="hidden flex-1 overflow-auto flex justify-center p-4">
+          <iframe id="previewIframe" class="w-full h-full bg-white shadow-md rounded-md border border-slate-200 transition-transform origin-top" sandbox="allow-same-origin allow-scripts"></iframe>
         </div>
       </div>
 
       <!-- Tab Content: Oracle APEX (PL/SQL) -->
-      <div id="tabContentApex" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text">
+      <div id="tabContentApex" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text bg-slate-50/50">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-slate-400 text-xs font-sans">Drop-in PL/SQL for Oracle APEX Page Process or Dynamic Action:</span>
-          <button onclick="copyToClipboard('apexCodeText')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition">Copy Code</button>
+          <span class="text-slate-600 text-xs font-sans">Drop-in PL/SQL for Oracle APEX Page Process or Dynamic Action:</span>
+          <button onclick="copyToClipboard('apexCodeText')" class="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs rounded text-xs transition cursor-pointer flex items-center space-x-1">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+            </svg>
+            <span>Copy Code</span>
+          </button>
         </div>
-        <pre id="apexCodeText" class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-sky-300 overflow-x-auto"></pre>
+        <pre id="apexCodeText" class="p-3.5 bg-white rounded-lg border border-slate-200 text-sky-800 shadow-2xs overflow-x-auto"></pre>
       </div>
 
       <!-- Tab Content: cURL -->
-      <div id="tabContentCurl" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text">
+      <div id="tabContentCurl" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text bg-slate-50/50">
         <div class="flex items-center justify-between mb-2">
-          <span class="text-slate-400 text-xs font-sans">cURL command for terminal or automation pipeline:</span>
-          <button onclick="copyToClipboard('curlCodeText')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition">Copy cURL</button>
+          <span class="text-slate-600 text-xs font-sans">cURL command for terminal or automation pipeline:</span>
+          <button onclick="copyToClipboard('curlCodeText')" class="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs rounded text-xs transition cursor-pointer flex items-center space-x-1">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+            </svg>
+            <span>Copy cURL</span>
+          </button>
         </div>
-        <pre id="curlCodeText" class="p-3 bg-slate-900 rounded-lg border border-slate-800 text-emerald-300 overflow-x-auto"></pre>
+        <pre id="curlCodeText" class="p-3.5 bg-white rounded-lg border border-slate-200 text-slate-800 shadow-2xs overflow-x-auto"></pre>
       </div>
 
       <!-- Tab Content: Headers -->
-      <div id="tabContentHeaders" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text">
-        <div class="text-slate-400 text-xs font-sans mb-3">Diagnostic response headers returned by the engine:</div>
-        <div class="overflow-hidden rounded-lg border border-slate-800">
+      <div id="tabContentHeaders" class="hidden flex-1 p-4 overflow-y-auto font-mono text-xs select-text bg-slate-50/50">
+        <div class="text-slate-600 text-xs font-sans mb-3">Diagnostic response headers returned by the engine:</div>
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xs">
           <table class="w-full text-left text-xs">
-            <thead class="bg-slate-900 text-slate-400 uppercase text-[10px]">
+            <thead class="bg-slate-50 text-slate-600 uppercase text-[10px] font-semibold border-b border-slate-200">
               <tr>
-                <th class="p-2">Header</th>
-                <th class="p-2">Value</th>
+                <th class="p-2.5">Header</th>
+                <th class="p-2.5">Value</th>
               </tr>
             </thead>
-            <tbody id="responseHeadersTable" class="divide-y divide-slate-800 bg-slate-950">
-              <tr><td class="p-2 text-slate-500" colspan="2">Run a report to inspect headers.</td></tr>
+            <tbody id="responseHeadersTable" class="divide-y divide-slate-100 bg-white">
+              <tr><td class="p-3 text-slate-400 italic" colspan="2">Run a report to inspect headers.</td></tr>
             </tbody>
           </table>
         </div>
@@ -407,7 +475,7 @@
       editor = CodeMirror(container, {
         value: "{\n  \n}",
         mode: { name: "javascript", json: true },
-        theme: "dracula",
+        theme: "default",
         lineNumbers: true,
         matchBrackets: true,
         indentUnit: 2,
@@ -432,9 +500,9 @@
       };
       for (const [key, btn] of Object.entries(btns)) {
         if (key === fmt) {
-          btn.className = 'px-2.5 py-1 rounded-md text-white bg-sky-600 transition flex items-center space-x-1 font-semibold';
+          btn.className = 'px-2.5 py-1 rounded-md text-slate-900 bg-white shadow-xs border border-slate-200/80 transition flex items-center space-x-1 font-semibold cursor-pointer';
         } else {
-          btn.className = 'px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition flex items-center space-x-1';
+          btn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center space-x-1 cursor-pointer';
         }
       }
       updateIntegrationSnippets();
@@ -456,13 +524,13 @@
         const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
         const content = document.getElementById(`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
         if (t === tab) {
-          btn.className = 'px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5';
+          btn.className = 'px-3 py-1.5 text-xs font-semibold text-sky-700 border-b-2 border-sky-600 bg-white transition flex items-center space-x-1.5 cursor-pointer';
           content.classList.remove('hidden');
           if (t === 'payload' && editor) {
             setTimeout(() => editor.refresh(), 50);
           }
         } else {
-          btn.className = 'px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5';
+          btn.className = 'px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent transition flex items-center space-x-1.5 cursor-pointer';
           content.classList.add('hidden');
         }
       });
@@ -475,10 +543,10 @@
         const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
         const content = document.getElementById(`tabContent${t.charAt(0).toUpperCase() + t.slice(1)}`);
         if (t === tab) {
-          btn.className = 'px-3 py-1.5 text-xs font-semibold text-sky-400 border-b-2 border-sky-400 transition flex items-center space-x-1.5';
+          btn.className = 'px-3 py-1.5 text-xs font-semibold text-sky-700 border-b-2 border-sky-600 bg-white transition flex items-center space-x-1.5 cursor-pointer';
           content.classList.remove('hidden');
         } else {
-          btn.className = 'px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition flex items-center space-x-1.5';
+          btn.className = 'px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 border-b-2 border-transparent transition flex items-center space-x-1.5 cursor-pointer';
           content.classList.add('hidden');
         }
       });
@@ -567,18 +635,21 @@
         if (meta.blocks && meta.blocks.length > 0) {
           meta.blocks.forEach(b => {
             const el = document.createElement('div');
-            el.className = 'p-2 bg-slate-950 rounded border border-slate-800 flex items-center justify-between';
-            const optText = b.options ? `<span class="text-amber-400">(${b.options})</span>` : '';
+            el.className = 'p-2.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between';
+            const optText = b.options ? `<span class="text-amber-700 font-semibold ml-1">(${b.options})</span>` : '';
             el.innerHTML = `
-              <div>
-                <span class="text-sky-400 font-bold">{{#each ${b.target}}}</span> ${optText}
+              <div class="flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5 text-sky-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span class="text-sky-700 font-bold">{{#each ${b.target}}}</span> ${optText}
               </div>
-              <span class="text-slate-400 text-[10px]">Row ${b.start_row} → ${b.end_row || '?'}</span>
+              <span class="text-slate-500 text-[10px]">Row ${b.start_row} → ${b.end_row || '?'}</span>
             `;
             blocksList.appendChild(el);
           });
         } else {
-          blocksList.innerHTML = '<div class="text-slate-500 italic p-1">No repeating frame directives found.</div>';
+          blocksList.innerHTML = '<div class="text-slate-400 italic p-1">No repeating frame directives found.</div>';
         }
 
         // Render Variables Table
@@ -588,12 +659,12 @@
           meta.variables.forEach(v => {
             const tr = document.createElement('tr');
             const scopeTag = v.scope && v.scope.length > 0 
-              ? `<span class="px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800 text-[10px]">${v.scope.join(' > ')}</span>`
-              : `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">root</span>`;
+              ? `<span class="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-medium">${v.scope.join(' > ')}</span>`
+              : `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-medium">root</span>`;
 
             tr.innerHTML = `
-              <td class="p-2 text-white font-medium">{{${v.name}}}</td>
-              <td class="p-2 text-slate-400">${v.cell}</td>
+              <td class="p-2 text-slate-900 font-medium">{{${v.name}}}</td>
+              <td class="p-2 text-slate-500">${v.cell}</td>
               <td class="p-2">${scopeTag}</td>
             `;
             varTable.appendChild(tr);
@@ -606,20 +677,23 @@
         if (meta.formulas && meta.formulas.length > 0) {
           meta.formulas.forEach(f => {
             const el = document.createElement('div');
-            el.className = 'p-2 bg-slate-950 rounded border border-slate-800 flex items-center justify-between';
+            el.className = 'p-2.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between';
             const badge = f.is_summary 
-              ? '<span class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1 rounded">Expands</span>' 
-              : '<span class="text-[10px] bg-slate-800 text-slate-400 px-1 rounded">Row Formula</span>';
+              ? '<span class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-medium">Expands</span>' 
+              : '<span class="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded font-medium">Row Formula</span>';
             el.innerHTML = `
-              <div>
-                <span class="text-slate-300 font-bold">${f.cell}:</span> <span class="text-emerald-400">${f.formula}</span>
+              <div class="flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                <span class="text-slate-700 font-bold">${f.cell}:</span> <span class="text-emerald-700 font-semibold">${f.formula}</span>
               </div>
               <div>${badge}</div>
             `;
             formulasList.appendChild(el);
           });
         } else {
-          formulasList.innerHTML = '<div class="text-slate-500 italic p-1">No formulas detected in this template.</div>';
+          formulasList.innerHTML = '<div class="text-slate-400 italic p-1">No formulas detected in this template.</div>';
         }
 
         // Render Media Tags
@@ -628,18 +702,21 @@
         if (meta.media_tags && meta.media_tags.length > 0) {
           meta.media_tags.forEach(m => {
             const el = document.createElement('div');
-            el.className = 'p-2 bg-slate-950 rounded border border-slate-800 flex items-center justify-between';
+            el.className = 'p-2.5 bg-white rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between';
             el.innerHTML = `
-              <div>
-                <span class="text-purple-400 font-bold">@${m.type}</span>
-                <span class="text-slate-300 ml-1 truncate">${m.params}</span>
+              <div class="flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+                </svg>
+                <span class="text-purple-700 font-bold">@${m.type}</span>
+                <span class="text-slate-700 ml-1 truncate">${m.params}</span>
               </div>
-              <span class="text-slate-400 text-[10px]">Cell ${m.cell}</span>
+              <span class="text-slate-500 text-[10px]">Cell ${m.cell}</span>
             `;
             mediaList.appendChild(el);
           });
         } else {
-          mediaList.innerHTML = '<div class="text-slate-500 italic p-1">No dynamic barcodes or QR codes.</div>';
+          mediaList.innerHTML = '<div class="text-slate-400 italic p-1">No dynamic barcodes or QR codes.</div>';
         }
 
         // Update Editor Data if requested
@@ -683,11 +760,11 @@
 
         circle.innerText = data.score;
         if (data.score >= 90) {
-          circle.className = 'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-emerald-950 text-emerald-400 border border-emerald-500/40';
+          circle.className = 'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-emerald-50 text-emerald-700 border border-emerald-200';
         } else if (data.score >= 60) {
-          circle.className = 'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-amber-950 text-amber-400 border border-amber-500/40';
+          circle.className = 'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-amber-50 text-amber-700 border border-amber-200';
         } else {
-          circle.className = 'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-rose-950 text-rose-400 border border-rose-500/40';
+          circle.className = 'w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm bg-rose-50 text-rose-700 border border-rose-200';
         }
 
         summary.innerText = data.summary;
@@ -704,16 +781,25 @@
           diagCard.classList.remove('hidden');
           allItems.forEach(item => {
             const el = document.createElement('div');
-            const color = item.level === 'error' ? 'text-rose-400 bg-rose-950/40 border-rose-800/50' : 
-                          item.level === 'warning' ? 'text-amber-400 bg-amber-950/40 border-amber-800/50' : 
-                          'text-sky-400 bg-sky-950/40 border-sky-800/50';
-            const icon = item.level === 'error' ? '❌' : item.level === 'warning' ? '⚠️' : 'ℹ️';
-            el.className = `p-2 rounded border ${color} flex items-start space-x-2`;
+            let color, iconSvg;
+
+            if (item.level === 'error') {
+              color = 'text-rose-800 bg-rose-50 border-rose-200';
+              iconSvg = `<svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+            } else if (item.level === 'warning') {
+              color = 'text-amber-800 bg-amber-50 border-amber-200';
+              iconSvg = `<svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`;
+            } else {
+              color = 'text-sky-800 bg-sky-50 border-sky-200';
+              iconSvg = `<svg class="w-4 h-4 text-sky-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`;
+            }
+
+            el.className = `p-2.5 rounded-lg border ${color} flex items-start space-x-2`;
             el.innerHTML = `
-              <span>${icon}</span>
+              ${iconSvg}
               <div class="flex-1">
                 <span class="font-bold">[${item.code}]</span> ${item.message}
-                ${item.cell ? `<span class="text-slate-400 ml-1">(${item.cell})</span>` : ''}
+                ${item.cell ? `<span class="text-slate-500 ml-1 font-semibold">(${item.cell})</span>` : ''}
               </div>
             `;
             diagList.appendChild(el);
@@ -904,15 +990,15 @@
         headersTable.innerHTML = '';
         for (const [k, v] of response.headers.entries()) {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td class="p-2 text-slate-400">${k}</td><td class="p-2 text-white font-mono">${v}</td>`;
+          tr.innerHTML = `<td class="p-2.5 text-slate-500 font-medium">${k}</td><td class="p-2.5 text-slate-800 font-mono">${v}</td>`;
           headersTable.appendChild(tr);
         }
 
         // Update Status Badge
         statusBadge.classList.remove('hidden');
-        statusBadge.classList.remove('border-rose-500/40', 'bg-rose-950/70', 'text-rose-400');
-        statusBadge.classList.add('border-emerald-500/40', 'bg-emerald-950/70', 'text-emerald-400');
-        statusText.innerText = `⚡ ${serverExecTime}ms (${(blob.size / 1024).toFixed(1)} KB)`;
+        statusBadge.classList.remove('border-rose-200', 'bg-rose-50', 'text-rose-700');
+        statusBadge.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+        statusText.innerText = `${serverExecTime}ms (${(blob.size / 1024).toFixed(1)} KB)`;
 
         // Handle Preview based on format
         previewEmpty.classList.add('hidden');
@@ -935,10 +1021,13 @@
           URL.revokeObjectURL(url);
           // Show notice inside preview
           iframe.srcdoc = `
-            <div style="font-family: system-ui; display: flex; height: 90vh; align-items: center; justify-content: center; text-align: center;">
-              <div>
-                <h2>📊 Excel File Generated!</h2>
-                <p>The spreadsheet <strong>${currentTemplate}.xlsx</strong> has been downloaded to your machine.</p>
+            <div style="font-family: system-ui, -apple-system, sans-serif; display: flex; height: 90vh; align-items: center; justify-content: center; text-align: center; color: #1e293b;">
+              <div style="background: #ffffff; padding: 32px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); max-width: 400px;">
+                <div style="width: 48px; height: 48px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; color: #059669;">
+                  <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Excel Spreadsheet Generated</h3>
+                <p style="margin: 0; font-size: 13px; color: #64748b;">The report <strong>${currentTemplate}.xlsx</strong> has been downloaded to your computer.</p>
               </div>
             </div>
           `;
@@ -950,8 +1039,8 @@
       } catch (err) {
         console.error("Render failed:", err);
         statusBadge.classList.remove('hidden');
-        statusBadge.classList.remove('border-emerald-500/40', 'bg-emerald-950/70', 'text-emerald-400');
-        statusBadge.classList.add('border-rose-500/40', 'bg-rose-950/70', 'text-rose-400');
+        statusBadge.classList.remove('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+        statusBadge.classList.add('border-rose-200', 'bg-rose-50', 'text-rose-700');
         statusText.innerText = `Error: ${err.message}`;
         alert(`Render Error: ${err.message}`);
       } finally {

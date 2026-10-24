@@ -1,0 +1,33 @@
+{
+  "name": "apexreports",
+  "version": "1.0.0",
+  "description": "[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/) [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green.svg)](https://fastapi.tiangolo.com/) [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "build:css": "postcss app/static/src/studio.css -o app/static/vendor/studio.css --env production",
+    "watch:css": "postcss app/static/src/studio.css -o app/static/vendor/studio.css -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/m-asadjaved/ApexReports.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/m-asadjaved/ApexReports/issues"
+  },
+  "homepage": "https://github.com/m-asadjaved/ApexReports#readme",
+  "devDependencies": {
+    "autoprefixer": "^10.6.1",
+    "cssnano": "^8.0.10",
+    "postcss": "^8.5.31",
+    "postcss-cli": "^12.0.0",
+    "tailwindcss": "^3.4.17"
+  }
+}

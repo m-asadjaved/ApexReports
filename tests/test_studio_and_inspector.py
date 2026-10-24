@@ -71,3 +71,27 @@ def test_download_template():
 def test_download_nonexistent_template():
     response = client.get("/api/v1/templates/NON_EXISTENT_FILE/download")
     assert response.status_code == 404
+
+def test_studio_white_theme_and_svg_icons():
+    """Verify studio is served in light/white theme with SVG icons and no emojis."""
+    response = client.get("/studio")
+    assert response.status_code == 200
+    html = response.text
+
+    # White theme assertions
+    assert "bg-slate-50" in html or "bg-white" in html
+    assert "border-slate-200" in html
+    assert 'theme: "default"' in html
+    assert "dracula" not in html
+
+    # SVG icons used instead of emojis
+    assert "<svg" in html
+    for emoji in ["⚡", "🖨️", "📊", "🔍", "🔁", "🏷️", "🧮", "📱", "👁️", "💻", "📄", "❌", "⚠️", "ℹ️"]:
+        assert emoji not in html, f"Emoji '{emoji}' should not be in studio HTML"
+
+    # Static CSS asset served
+    css_res = client.get("/static/vendor/studio.css")
+    assert css_res.status_code == 200
+    assert "text/css" in css_res.headers["content-type"]
+    assert len(css_res.content) > 5000
+
