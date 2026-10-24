@@ -236,6 +236,28 @@ class TemplateLinter:
                         "row": cell.row
                     })
 
+        # Repeating Rows (Repeat On Page)
+        elif tag in ("#repeat-on-page", "#repeat-header", "#repeat"):
+            block_stack.append({"kind": "repeat", "target": tag, "cell": cell.coordinate, "row": cell.row})
+
+        elif tag in ("/repeat-on-page", "/repeat-header", "/repeat"):
+            if not block_stack:
+                errors.append({
+                    "code": "UNMATCHED_CLOSE_REPEAT",
+                    "message": f"Unexpected '{{{{{tag}}}}}' at {cell.coordinate} without a matching repeat open tag.",
+                    "cell": cell.coordinate,
+                    "row": cell.row
+                })
+            else:
+                top = block_stack.pop()
+                if top["kind"] != "repeat":
+                    errors.append({
+                        "code": "MISMATCHED_BLOCK_CLOSE",
+                        "message": f"Mismatched closing tag '{{{{{tag}}}}}' at {cell.coordinate}. Expected '{{{{/{top['kind']}}}}}'.",
+                        "cell": cell.coordinate,
+                        "row": cell.row
+                    })
+
         # Media Tags (@qr, @barcode, @image)
         elif tag.startswith("@qr") or tag.startswith("@barcode") or tag.startswith("@image"):
             parts = tag.split()

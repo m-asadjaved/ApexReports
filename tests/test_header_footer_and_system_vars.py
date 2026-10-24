@@ -239,3 +239,163 @@ def test_no_trailing_ghost_rows_and_page_number_print_values():
     assert 'content: counter(page)' not in full_html
     assert 'Footer: Page 1 of 1' in full_html
 
+
+def test_repeat_on_page_outside_each_loop():
+    """Verify {{#repeat-on-page}} placed before multi-page each loop repeats table headers on every page."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    ws["A1"] = "{{#page-header}}"
+    ws["A2"] = "Invoice Report: {{customer}}"
+    ws["A3"] = "{{/page-header}}"
+
+    ws["A4"] = "{{#repeat-on-page}}"
+    ws["A5"] = "Item Description"
+    ws["B5"] = "Amount"
+    ws["A6"] = "{{/repeat-on-page}}"
+
+    ws["A7"] = "{{#each items page_break=true}}"
+    ws["A8"] = "{{desc}}"
+    ws["B8"] = "{{amount}}"
+    ws["A9"] = "{{/each}}"
+
+    data = {
+        "customer": "Apex Corp",
+        "items": [
+            {"desc": "Alpha", "amount": 100},
+            {"desc": "Beta", "amount": 200},
+            {"desc": "Gamma", "amount": 300},
+        ]
+    }
+
+    # 1. Fast compiler mode
+    ast = TemplateCompiler.compile(wb, "TEST_REPEAT_OUTSIDE")
+    fast_html = CompiledRenderer.render(ast, data)
+
+    # "Item Description" should repeat on every page (3 times total)
+    assert fast_html.count("Item Description") == 3
+    assert "Alpha" in fast_html
+    assert "Beta" in fast_html
+    assert "Gamma" in fast_html
+
+    # Check that pages 2 and 3 have page-break tr class attached to the repeated table header
+    assert fast_html.count('class="page-break"') == 2
+
+    # 2. Full compiler mode
+    proc = TemplateProcessor(wb)
+    out_wb = proc.process(data)
+    out_ws = out_wb.active
+
+    full_html = FastHtmlRenderer.render(out_ws)
+    assert full_html.count("Item Description") == 3
+    assert full_html.count('class="page-break"') == 2
+    assert "Alpha" in full_html
+    assert "Beta" in full_html
+    assert "Gamma" in full_html
+
+
+def test_repeat_header_inside_each_loop():
+    """Verify {{#repeat-header}} inside an each loop does NOT repeat when page_break=false, but repeats when page_break=true."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    # Without page_break: header should appear only once
+    ws["A1"] = "{{#each items}}"
+    ws["A2"] = "{{#repeat-header}}"
+    ws["A3"] = "Product Name"
+    ws["B3"] = "Qty"
+    ws["A4"] = "{{/repeat-header}}"
+    ws["A5"] = "{{name}}"
+    ws["B5"] = "{{qty}}"
+    ws["A6"] = "{{/each}}"
+
+    data = {
+        "items": [
+            {"name": "Apple", "qty": 10},
+            {"name": "Banana", "qty": 20},
+            {"name": "Cherry", "qty": 30},
+        ]
+    }
+
+    ast = TemplateCompiler.compile(wb, "TEST_REPEAT_INSIDE_NO_PB")
+    html_no_pb = CompiledRenderer.render(ast, data)
+    assert html_no_pb.count("Product Name") == 1
+
+    proc = TemplateProcessor(wb)
+    out_wb = proc.process(data)
+    full_html_no_pb = FastHtmlRenderer.render(out_wb.active)
+    assert full_html_no_pb.count("Product Name") == 1
+
+    # With page_break=true: header should repeat on every item page
+    ws["A1"] = "{{#each items page_break=true}}"
+    ast_pb = TemplateCompiler.compile(wb, "TEST_REPEAT_INSIDE_WITH_PB")
+    html_pb = CompiledRenderer.render(ast_pb, data)
+    assert html_pb.count("Product Name") == 3
+
+    proc_pb = TemplateProcessor(wb)
+    out_wb_pb = proc_pb.process(data)
+    full_html_pb = FastHtmlRenderer.render(out_wb_pb.active)
+    assert full_html_pb.count("Product Name") == 3
+
+
+def test_repeat_on_page_with_explicit_page_break():
+    """Verify repeating rows re-emit after an explicit {{page_break}} directive."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+
+    ws["A1"] = "{{#repeat}}"
+    ws["A2"] = "Col Header 1"
+    ws["B2"] = "Col Header 2"
+    ws["A3"] = "{{/repeat}}"
+    ws["A4"] = "Section 1 Data"
+    ws["A5"] = "{{page_break}}"
+    ws["A6"] = "Section 2 Data"
+
+    data = {}
+
+    # Fast Mode
+    ast = TemplateCompiler.compile(wb, "TEST_REPEAT_EXPLICIT_PB")
+    fast_html = CompiledRenderer.render(ast, data)
+    assert fast_html.count("Col Header 1") == 2
+    assert "Section 1 Data" in fast_html
+    assert "Section 2 Data" in fast_html
+
+    # Full Mode
+    proc = TemplateProcessor(wb)
+    out_wb = proc.process(data)
+    full_html = FastHtmlRenderer.render(out_wb.active)
+    assert full_html.count("Col Header 1") == 2
+    assert "Section 1 Data" in full_html
+    assert "Section 2 Data" in full_html
+
+
+def test_repeat_on_page_linter_validation():
+    """Verify TemplateLinter validates matching {{#repeat-on-page}} and flags unmatched/unclosed blocks."""
+    # Valid
+    wb_valid = openpyxl.Workbook()
+    ws_v = wb_valid.active
+    ws_v["A1"] = "{{#repeat-on-page}}"
+    ws_v["A2"] = "Header"
+    ws_v["A3"] = "{{/repeat-on-page}}"
+    res_valid = TemplateLinter.lint_workbook(wb_valid, "TEST_LINT_VALID")
+    assert res_valid["valid"] is True
+    assert len(res_valid["errors"]) == 0
+
+    # Unclosed
+    wb_unclosed = openpyxl.Workbook()
+    ws_u = wb_unclosed.active
+    ws_u["A1"] = "{{#repeat-on-page}}"
+    ws_u["A2"] = "Header"
+    res_unclosed = TemplateLinter.lint_workbook(wb_unclosed, "TEST_LINT_UNCLOSED")
+    assert res_unclosed["valid"] is False
+    assert any(e["code"] == "UNCLOSED_BLOCK" for e in res_unclosed["errors"])
+
+    # Unmatched close
+    wb_unmatched = openpyxl.Workbook()
+    ws_m = wb_unmatched.active
+    ws_m["A1"] = "{{/repeat-on-page}}"
+    res_unmatched = TemplateLinter.lint_workbook(wb_unmatched, "TEST_LINT_UNMATCHED")
+    assert res_unmatched["valid"] is False
+    assert any(e["code"] == "UNMATCHED_CLOSE_REPEAT" for e in res_unmatched["errors"])
+
+

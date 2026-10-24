@@ -69,6 +69,11 @@ class IfBlockElement(CompiledElement):
     children: List[CompiledElement] = field(default_factory=list)
 
 @dataclass
+class RepeatOnPageElement(CompiledElement):
+    children: List[CompiledElement] = field(default_factory=list)
+    is_loop_child: bool = False
+
+@dataclass
 class CompiledTemplateAST:
     template_code: str
     mtime: float
@@ -500,6 +505,13 @@ class TemplateCompiler:
             if val in ("{{/page-footer}}", "{{/footer}}"):
                 return {"type": "footer_end"}
 
+            m_repeat = re.match(r"^\{\{#(repeat-on-page|repeat-header|repeat)(\s*.*?)\}\}$", val, re.I)
+            if m_repeat:
+                return {"type": "repeat_on_page_start"}
+
+            if re.match(r"^\{\{/(repeat-on-page|repeat-header|repeat)\}\}$", val, re.I):
+                return {"type": "repeat_on_page_end"}
+
             if val in ("{{#page-break}}", "{{page_break}}", "{{page-break}}"):
                 return {"type": "page_break"}
         return None
@@ -519,6 +531,11 @@ class TemplateCompiler:
                         if close_idx < len(rows):
                             cls._transfer_directive_borders(rows[close_idx], rows[close_idx - 1], from_side="top", to_side="bottom")
                     children = cls._build_elements_tree(rows, i + 1, close_idx)
+                    has_inner_each = any(isinstance(c, EachBlockElement) for c in children)
+                    if not has_inner_each:
+                        for c in children:
+                            if isinstance(c, RepeatOnPageElement):
+                                c.is_loop_child = True
                     elements.append(EachBlockElement(
                         collection_key=d["key"],
                         attrs=d.get("attrs", {}),
@@ -535,11 +552,21 @@ class TemplateCompiler:
                     ))
                     i = close_idx + 1
                     continue
+                elif d["type"] == "repeat_on_page_start":
+                    close_idx = cls._find_close(rows, i + 1, end_idx, "repeat_on_page_start", "repeat_on_page_end")
+                    if close_idx > i + 1:
+                        cls._transfer_directive_borders(row, rows[i + 1], from_side="bottom", to_side="top")
+                        if close_idx < len(rows):
+                            cls._transfer_directive_borders(rows[close_idx], rows[close_idx - 1], from_side="top", to_side="bottom")
+                    children = cls._build_elements_tree(rows, i + 1, close_idx)
+                    elements.append(RepeatOnPageElement(children=children))
+                    i = close_idx + 1
+                    continue
                 elif d["type"] == "page_break":
                     elements.append(PageBreakElement())
                     i += 1
                     continue
-                elif d["type"] in ("each_end", "if_end"):
+                elif d["type"] in ("each_end", "if_end", "repeat_on_page_end"):
                     i += 1
                     continue
 
@@ -604,6 +631,8 @@ class CompiledRenderer:
                 elif isinstance(el, IfBlockElement):
                     if evaluator.evaluate_condition(el.condition, ctx):
                         b_cnt += _count_breaks(el.children, ctx)
+                elif isinstance(el, RepeatOnPageElement):
+                    b_cnt += _count_breaks(el.children, ctx)
             return b_cnt
 
         tot_pages = 1 + _count_breaks(ast.elements, context)
@@ -667,10 +696,39 @@ class CompiledRenderer:
         col_accumulators: Dict[int, float],
         pending_page_break: List[bool],
         row_history: Dict[str, Any],
-        is_top_level: bool = False
+        is_top_level: bool = False,
+        active_repeat_elements: Optional[List[CompiledElement]] = None
     ) -> None:
+        current_repeat = active_repeat_elements
         for elem in elements:
-            if isinstance(elem, StaticRowElement):
+            if isinstance(elem, RepeatOnPageElement):
+                current_repeat = elem.children
+                is_later_item = getattr(elem, "is_loop_child", False) and (context.get("@index") is not None and context.get("@index", 0) > 0)
+
+                if not is_later_item or pending_page_break[0]:
+                    cls._render_elements(
+                        elements=elem.children,
+                        context=context,
+                        buf=buf,
+                        col_accumulators=col_accumulators,
+                        pending_page_break=pending_page_break,
+                        row_history=row_history,
+                        is_top_level=False,
+                        active_repeat_elements=None
+                    )
+            elif isinstance(elem, StaticRowElement):
+                if pending_page_break[0] and current_repeat:
+                    cls._render_elements(
+                        elements=current_repeat,
+                        context=context,
+                        buf=buf,
+                        col_accumulators=col_accumulators,
+                        pending_page_break=pending_page_break,
+                        row_history=row_history,
+                        is_top_level=False,
+                        active_repeat_elements=None
+                    )
+
                 is_pb = pending_page_break[0]
                 pending_page_break[0] = False
                 cls._render_static_row(elem.row, context, buf, col_accumulators, row_history, is_page_break=is_pb)
@@ -678,7 +736,16 @@ class CompiledRenderer:
                 pending_page_break[0] = True
             elif isinstance(elem, IfBlockElement):
                 if evaluator.evaluate_condition(elem.condition, context):
-                    cls._render_elements(elem.children, context, buf, col_accumulators, pending_page_break, row_history, is_top_level=False)
+                    cls._render_elements(
+                        elements=elem.children,
+                        context=context,
+                        buf=buf,
+                        col_accumulators=col_accumulators,
+                        pending_page_break=pending_page_break,
+                        row_history=row_history,
+                        is_top_level=False,
+                        active_repeat_elements=current_repeat
+                    )
             elif isinstance(elem, EachBlockElement):
                 raw_items = evaluator.evaluate_expression(elem.collection_key, context)
                 if isinstance(raw_items, (list, tuple)):
@@ -709,7 +776,16 @@ class CompiledRenderer:
                     if page_break and item_idx > 0:
                         pending_page_break[0] = True
 
-                    cls._render_elements(elem.children, item_ctx, buf, col_accumulators, pending_page_break, row_history, is_top_level=False)
+                    cls._render_elements(
+                        elements=elem.children,
+                        context=item_ctx,
+                        buf=buf,
+                        col_accumulators=col_accumulators,
+                        pending_page_break=pending_page_break,
+                        row_history=row_history,
+                        is_top_level=False,
+                        active_repeat_elements=current_repeat
+                    )
 
     @classmethod
     def _render_static_row(

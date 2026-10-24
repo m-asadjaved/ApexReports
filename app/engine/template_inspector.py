@@ -113,12 +113,27 @@ class TemplateInspector:
                                     break
 
                         # Page Break
-                        elif tag == "#page-break":
+                        elif tag in ("#page-break", "page_break", "page-break"):
                             blocks.append({
                                 "type": "page_break",
                                 "row": cell.row,
                                 "cell": cell.coordinate
                             })
+
+                        # Repeat on page
+                        elif tag in ("#repeat-on-page", "#repeat-header", "#repeat"):
+                            blocks.append({
+                                "type": "repeat_on_page",
+                                "start_row": cell.row,
+                                "start_cell": cell.coordinate
+                            })
+
+                        elif tag in ("/repeat-on-page", "/repeat-header", "/repeat"):
+                            for b in reversed(blocks):
+                                if b.get("type") == "repeat_on_page" and "end_row" not in b:
+                                    b["end_row"] = cell.row
+                                    b["end_cell"] = cell.coordinate
+                                    break
 
                         # Media: QR / Barcode / Image
                         elif tag.startswith("@qr") or tag.startswith("@barcode") or tag.startswith("@image"):

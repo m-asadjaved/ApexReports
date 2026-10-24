@@ -113,22 +113,30 @@ def test_sales_tax_template_formulas_fast_and_full():
     out_ws = out_wb.active
     calc = FormulaEvaluator.evaluate_worksheet(out_ws)
 
-    # Row 8 is Biscuits: Rate = 100 (500/5), Net Value = 1410 (1000 + 500 - 90)
-    assert calc.get((8, 3)) == 100
-    assert calc.get((8, 6)) == 1410
+    # Find the rows containing the item descriptions
+    biscuits_row = None
+    for r in range(1, out_ws.max_row + 1):
+        if out_ws.cell(r, 1).value == "Biscuits":
+            biscuits_row = r
+            break
+    assert biscuits_row is not None
 
-    # Row 9 is Candy: Rate = 30 (300/10), Net Value = 1656 (1410 + 300 - 54)
-    assert calc.get((9, 3)) == 30
-    assert calc.get((9, 6)) == 1656
+    # Biscuits: Rate = 100 (500/5), Net Value = 1410 (1000 + 500 - 90)
+    assert calc.get((biscuits_row, 3)) == 100
+    assert calc.get((biscuits_row, 6)) == 1410
 
-    # Row 10 is Wafers: Rate = 50 (200/4), Net Value = 1820 (1656 + 200 - 36)
-    assert calc.get((10, 3)) == 50
-    assert calc.get((10, 6)) == 1820
+    # Candy: Rate = 30 (300/10), Net Value = 1656 (1410 + 300 - 54)
+    assert calc.get((biscuits_row + 1, 3)) == 30
+    assert calc.get((biscuits_row + 1, 6)) == 1656
 
-    # Row 11 is Subtotal: Value = 1000, St Value = 180, Net Value = 4886
-    assert calc.get((11, 4)) == 1000
-    assert calc.get((11, 5)) == 180
-    assert calc.get((11, 6)) == 4886
+    # Wafers: Rate = 50 (200/4), Net Value = 1820 (1656 + 200 - 36)
+    assert calc.get((biscuits_row + 2, 3)) == 50
+    assert calc.get((biscuits_row + 2, 6)) == 1820
+
+    # Subtotal: Value = 1000, St Value = 180, Net Value = 4886
+    assert calc.get((biscuits_row + 3, 4)) == 1000
+    assert calc.get((biscuits_row + 3, 5)) == 180
+    assert calc.get((biscuits_row + 3, 6)) == 4886
 
     # 2. Fast compiler mode via TemplateCompiler
     ast = TemplateCompiler.compile(wb, "TEST_SALES_TAX_VERIFY")

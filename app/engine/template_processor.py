@@ -40,6 +40,23 @@ class TemplateProcessor:
         self.header_target_rows: Set[int] = set()
         self.footer_target_rows: Set[int] = set()
         self.current_page: int = 1
+        # Active repeating rows for repeat-on-page directive: list of (row_cells, orig_row_num)
+        self.active_repeat_rows: Optional[List[Tuple[Tuple, int]]] = None
+        self.pending_page_break: bool = False
+
+    def _emit_repeat_rows(self, target_r: int, context: Dict[str, Any]) -> int:
+        if not self.active_repeat_rows:
+            return target_r
+        for rep_cells, rep_orig_r in self.active_repeat_rows:
+            self._emit_row(rep_cells, rep_orig_r, target_r, context)
+            if rep_orig_r not in self.global_row_mapping:
+                self.global_row_mapping[rep_orig_r] = []
+            self.global_row_mapping[rep_orig_r].append(target_r)
+            if rep_orig_r not in self.recent_row_mapping:
+                self.recent_row_mapping[rep_orig_r] = []
+            self.recent_row_mapping[rep_orig_r].append(target_r)
+            target_r += 1
+        return target_r
 
     def process(self, data: Dict[str, Any]) -> Workbook:
         """Processes the template using provided data dictionary and returns populated Workbook."""
@@ -241,7 +258,8 @@ class TemplateProcessor:
         start_idx: int,
         end_idx: int,
         context: Dict[str, Any],
-        target_row_start: int
+        target_row_start: int,
+        is_leaf_loop: bool = False
     ) -> int:
         """Recursively processes a block of rows."""
         target_r = target_row_start
@@ -287,6 +305,10 @@ class TemplateProcessor:
                     self.recent_row_mapping[r_idx + 1] = []
 
                 start_each_target_r = target_r
+                saved_repeat_rows = self.active_repeat_rows
+                has_inner_each = any((d := self._detect_row_directive(rows[k])) and d["type"] == "each_start" for k in range(i + 1, close_idx))
+                child_is_leaf = not has_inner_each
+
                 for item_idx, item in enumerate(items):
                     item_context = {**context, **item} if isinstance(item, dict) else {**context, "item": item, "this": item}
                     item_context["@index"] = item_idx
@@ -296,14 +318,18 @@ class TemplateProcessor:
                     if page_break and item_idx > 0:
                         self.page_breaks.append(target_r - 1)
                         self.current_page += 1
+                        self.pending_page_break = True
 
+                    self.active_repeat_rows = saved_repeat_rows
                     target_r = self._execute_block(
                         rows=rows,
                         start_idx=i + 1,
                         end_idx=close_idx,
                         context=item_context,
-                        target_row_start=target_r
+                        target_row_start=target_r,
+                        is_leaf_loop=child_is_leaf
                     )
+                self.active_repeat_rows = saved_repeat_rows
 
                 if start_each_target_r < target_r:
                     self._transfer_directive_borders(rows[i], start_each_target_r, from_side="bottom", to_side="top")
@@ -375,17 +401,53 @@ class TemplateProcessor:
                 i = next_i
                 continue
 
+            elif directive and directive["type"] == "repeat_on_page_start":
+                close_idx = self._find_matching_close(rows, i + 1, end_idx, "repeat_on_page_start", "repeat_on_page_end")
+                repeat_rows_info = [(rows[k], k + 1) for k in range(i + 1, close_idx)]
+                self.active_repeat_rows = repeat_rows_info
+
+                is_later_item = is_leaf_loop and (context.get("@index") is not None and context.get("@index", 0) > 0)
+
+                if not is_later_item or self.pending_page_break:
+                    start_target_r = target_r
+                    for rep_cells, rep_orig_r in repeat_rows_info:
+                        self._emit_row(rep_cells, rep_orig_r, target_r, context)
+                        if rep_orig_r not in self.global_row_mapping:
+                            self.global_row_mapping[rep_orig_r] = []
+                        self.global_row_mapping[rep_orig_r].append(target_r)
+                        if rep_orig_r not in self.recent_row_mapping:
+                            self.recent_row_mapping[rep_orig_r] = []
+                        self.recent_row_mapping[rep_orig_r].append(target_r)
+                        target_r += 1
+
+                    self.pending_page_break = False
+
+                    if start_target_r < target_r:
+                        self._transfer_directive_borders(rows[i], start_target_r, from_side="bottom", to_side="top")
+                        if close_idx < len(rows):
+                            self._transfer_directive_borders(rows[close_idx], target_r - 1, from_side="top", to_side="bottom")
+
+                i = close_idx + 1
+                continue
+
             elif directive and directive["type"] == "page_break":
                 self.page_breaks.append(target_r - 1)
                 self.current_page += 1
+                self.pending_page_break = True
                 i += 1
                 continue
 
-            elif directive and directive["type"] in ("each_end", "if_end", "header_end", "footer_end"):
+            elif directive and directive["type"] in ("each_end", "if_end", "header_end", "footer_end", "repeat_on_page_end"):
                 i += 1
                 continue
 
             else:
+                if self.pending_page_break and self.active_repeat_rows:
+                    target_r = self._emit_repeat_rows(target_r, context)
+                    self.pending_page_break = False
+                elif self.pending_page_break:
+                    self.pending_page_break = False
+
                 self._emit_row(row_cells, orig_row_num, target_r, context)
                 
                 # Update global and recent mappings
@@ -436,6 +498,13 @@ class TemplateProcessor:
 
             if val in ("{{/page-footer}}", "{{/footer}}"):
                 return {"type": "footer_end"}
+
+            m_repeat = re.match(r"^\{\{#(repeat-on-page|repeat-header|repeat)(\s*.*?)\}\}$", val, re.I)
+            if m_repeat:
+                return {"type": "repeat_on_page_start"}
+
+            if re.match(r"^\{\{/(repeat-on-page|repeat-header|repeat)\}\}$", val, re.I):
+                return {"type": "repeat_on_page_end"}
 
             if val in ("{{#page-break}}", "{{page_break}}", "{{page-break}}"):
                 return {"type": "page_break"}
